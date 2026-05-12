@@ -1,280 +1,192 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { ChevronLeft, ChevronRight, Plus, Clock, User, MapPin } from "lucide-react"
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-const days = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"]
-const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"]
+type Jadwal = {
+  id: string
+  nama_pasien: string
+  tanggal: string
+  waktu: string
+  layanan: string
+  catatan: string
+}
 
-const appointments = [
-  { id: 1, date: "2026-05-11", time: "09:00", patient: "Siti Aminah", service: "Pemeriksaan Kehamilan", status: "confirmed" },
-  { id: 2, date: "2026-05-11", time: "10:00", patient: "Dewi Lestari", service: "Imunisasi Bayi", status: "confirmed" },
-  { id: 3, date: "2026-05-11", time: "11:00", patient: "Rina Hartati", service: "Konsultasi KB", status: "pending" },
-  { id: 4, date: "2026-05-12", time: "09:30", patient: "Aisyah Putri", service: "USG", status: "confirmed" },
-  { id: 5, date: "2026-05-12", time: "14:00", patient: "Maya Sari", service: "Kontrol Nifas", status: "confirmed" },
-  { id: 6, date: "2026-05-13", time: "10:00", patient: "Fitri Handayani", service: "Pemeriksaan Kehamilan", status: "pending" },
-]
+const emptyForm = { nama_pasien: '', tanggal: '', waktu: '', layanan: '', catatan: '' }
 
-const practiceHours = [
-  { day: "Senin - Jumat", hours: "08:00 - 16:00" },
-  { day: "Sabtu", hours: "08:00 - 12:00" },
-  { day: "Minggu", hours: "Tutup" },
+const layananOptions = [
+  'Pemeriksaan Kehamilan',
+  'Imunisasi Bayi',
+  'Konsultasi KB',
+  'USG',
+  'Kontrol Nifas',
 ]
 
 export default function JadwalPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2026, 4, 1)) // May 2026
-  const [selectedDate, setSelectedDate] = useState<string>("2026-05-11")
-  const [showModal, setShowModal] = useState(false)
+  const [list, setList] = useState<Jadwal[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState(new Date())
 
-  const getDaysInMonth = (date: Date) => {
-    const year = date.getFullYear()
-    const month = date.getMonth()
-    const firstDay = new Date(year, month, 1).getDay()
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    return { firstDay, daysInMonth }
+  const fetchData = async () => {
+    const { data } = await supabase.from('jadwal_praktik').select('*').order('tanggal').order('waktu')
+    if (data) setList(data)
+    setLoading(false)
   }
 
-  const { firstDay, daysInMonth } = getDaysInMonth(currentDate)
+  useEffect(() => { fetchData() }, [])
 
-  const prevMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1))
+  const handleSimpan = async () => {
+    if (editId) {
+      const { error } = await supabase.from('jadwal_praktik').update(form).eq('id', editId)
+      if (error) { alert('Gagal mengupdate: ' + error.message); return }
+    } else {
+      const { error } = await supabase.from('jadwal_praktik').insert([form])
+      if (error) { alert('Gagal menyimpan: ' + error.message); return }
+    }
+    setForm(emptyForm)
+    setEditId(null)
+    setShowForm(false)
+    fetchData()
   }
 
-  const nextMonth = () => {
-    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1))
+  const handleEdit = (j: Jadwal) => {
+    setForm({ nama_pasien: j.nama_pasien, tanggal: j.tanggal, waktu: j.waktu, layanan: j.layanan, catatan: j.catatan })
+    setEditId(j.id)
+    setShowForm(true)
   }
 
-  const formatDateKey = (day: number) => {
-    const month = String(currentDate.getMonth() + 1).padStart(2, '0')
-    const dayStr = String(day).padStart(2, '0')
-    return `${currentDate.getFullYear()}-${month}-${dayStr}`
+  const handleHapus = async (id: string) => {
+    if (!confirm('Yakin hapus jadwal ini?')) return
+    await supabase.from('jadwal_praktik').delete().eq('id', id)
+    fetchData()
   }
 
-  const getAppointmentsForDate = (date: string) => {
-    return appointments.filter(a => a.date === date)
-  }
+  const today = selectedDate.toISOString().split('T')[0]
+  const jadwalHariIni = list.filter(j => j.tanggal === today)
 
-  const selectedAppointments = getAppointmentsForDate(selectedDate)
+  const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate()
+  const getFirstDay = (year: number, month: number) => new Date(year, month, 1).getDay()
+
+  const year = selectedDate.getFullYear()
+  const month = selectedDate.getMonth()
+  const daysInMonth = getDaysInMonth(year, month)
+  const firstDay = getFirstDay(year, month)
+
+  const bulanNama = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember']
+  const hariNama = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']
+
+  const tanggalAdaJadwal = new Set(list.map(j => j.tanggal))
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 space-y-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Jadwal Praktik</h1>
-          <p className="text-sm text-muted-foreground mt-1">Kelola jadwal kunjungan pasien</p>
+          <h1 className="text-2xl font-bold">Jadwal Praktik</h1>
+          <p className="text-gray-500 text-sm">Kelola jadwal kunjungan pasien</p>
         </div>
-        <button 
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition"
+        <button
+          onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(!showForm) }}
+          className="bg-primary/90 text-white px-4 py-2 rounded-full"
         >
-          <Plus className="h-4 w-4" />
-          Buat Jadwal
+          + Buat Jadwal
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Calendar */}
-        <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-foreground">
-              {months[currentDate.getMonth()]} {currentDate.getFullYear()}
-            </h2>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={prevMonth}
-                className="h-8 w-8 rounded-lg hover:bg-muted grid place-items-center transition"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              <button 
-                onClick={nextMonth}
-                className="h-8 w-8 rounded-lg hover:bg-muted grid place-items-center transition"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+      {showForm && (
+        <div className="border rounded p-4 space-y-3 bg-gray-50">
+          <h2 className="font-semibold">{editId ? 'Edit Jadwal' : 'Form Buat Jadwal'}</h2>
+          <input placeholder="Nama Pasien" className="w-full border rounded p-2"
+            value={form.nama_pasien} onChange={(e) => setForm({ ...form, nama_pasien: e.target.value })} />
+          <input type="date" className="w-full border rounded p-2"
+            value={form.tanggal} onChange={(e) => setForm({ ...form, tanggal: e.target.value })} />
+          <input type="time" className="w-full border rounded p-2"
+            value={form.waktu} onChange={(e) => setForm({ ...form, waktu: e.target.value })} />
+          <select className="w-full border rounded p-2"
+            value={form.layanan} onChange={(e) => setForm({ ...form, layanan: e.target.value })}>
+            <option value="">Pilih Layanan</option>
+            {layananOptions.map(l => <option key={l} value={l}>{l}</option>)}
+          </select>
+          <textarea placeholder="Catatan" className="w-full border rounded p-2" rows={2}
+            value={form.catatan} onChange={(e) => setForm({ ...form, catatan: e.target.value })} />
+          <div className="flex gap-2">
+            <button onClick={handleSimpan} className="bg-green-600 text-white px-4 py-2 rounded">
+              {editId ? 'Update' : 'Simpan'}
+            </button>
+            <button onClick={() => { setShowForm(false); setEditId(null) }} className="bg-gray-400 text-white px-4 py-2 rounded">Batal</button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Kalender */}
+        <div className="md:col-span-2 border rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="font-semibold">{bulanNama[month]} {year}</h2>
+            <div className="flex gap-2">
+              <button onClick={() => setSelectedDate(new Date(year, month - 1, 1))} className="px-2 py-1 border rounded">‹</button>
+              <button onClick={() => setSelectedDate(new Date(year, month + 1, 1))} className="px-2 py-1 border rounded">›</button>
             </div>
           </div>
-
-          {/* Days Header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {days.map(day => (
-              <div key={day} className="text-center text-xs font-semibold text-muted-foreground py-2">
-                {day}
-              </div>
-            ))}
+          <div className="grid grid-cols-7 text-center text-sm mb-2">
+            {hariNama.map(h => <div key={h} className="text-gray-500 font-medium">{h}</div>)}
           </div>
-
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
-            {/* Empty cells for days before first day */}
-            {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="aspect-square" />
-            ))}
-            
-            {/* Days of the month */}
+          <div className="grid grid-cols-7 text-center text-sm gap-1">
+            {Array.from({ length: firstDay }).map((_, i) => <div key={i} />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1
-              const dateKey = formatDateKey(day)
-              const hasAppointments = appointments.some(a => a.date === dateKey)
-              const isSelected = dateKey === selectedDate
-              const isToday = dateKey === "2026-05-11"
-
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              const isToday = dateStr === new Date().toISOString().split('T')[0]
+              const isSelected = dateStr === today
+              const hasJadwal = tanggalAdaJadwal.has(dateStr)
               return (
-                <button
-                  key={day}
-                  onClick={() => setSelectedDate(dateKey)}
-                  className={`aspect-square rounded-xl text-sm font-medium transition-all relative ${
-                    isSelected 
-                      ? "bg-primary text-primary-foreground" 
-                      : isToday
-                      ? "bg-primary/10 text-primary"
-                      : "hover:bg-muted text-foreground"
-                  }`}
-                >
+                <div key={day}
+                  onClick={() => setSelectedDate(new Date(year, month, day))}
+                  className={`p-2 rounded-lg cursor-pointer relative ${isSelected ? 'bg-primary/90 text-white' : isToday ? 'border border-green-600' : 'hover:bg-gray-100'}`}>
                   {day}
-                  {hasAppointments && !isSelected && (
-                    <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
-                  )}
-                </button>
+                  {hasJadwal && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-400 rounded-full" />}
+                </div>
               )
             })}
           </div>
         </div>
 
-        {/* Practice Hours */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <h3 className="font-semibold text-foreground mb-4">Jam Praktik</h3>
-          <div className="space-y-3">
-            {practiceHours.map((item, i) => (
-              <div key={i} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <span className="text-sm text-muted-foreground">{item.day}</span>
-                <span className={`text-sm font-medium ${item.hours === "Tutup" ? "text-destructive" : "text-foreground"}`}>
-                  {item.hours}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 p-4 bg-primary/5 rounded-xl border border-primary/20">
-            <div className="flex items-center gap-2 text-primary mb-2">
-              <MapPin className="h-4 w-4" />
-              <span className="font-semibold text-sm">Lokasi Praktik</span>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Jl. Kesehatan No. 123, Kelurahan Sehat, Kecamatan Bahagia
-            </p>
-          </div>
+        {/* Jam Praktik */}
+        <div className="border rounded-lg p-4 space-y-3">
+          <h2 className="font-semibold">Jam Praktik</h2>
+          <div className="flex justify-between text-sm"><span className="text-gray-500">Senin - Jumat</span><span>08:00 - 16:00</span></div>
+          <div className="flex justify-between text-sm"><span className="text-gray-500">Sabtu</span><span>08:00 - 12:00</span></div>
+          <div className="flex justify-between text-sm"><span className="text-gray-500">Minggu</span><span className="text-red-500">Tutup</span></div>
         </div>
       </div>
 
-      {/* Appointments for Selected Date */}
-      <div className="bg-card rounded-2xl border border-border p-5">
-        <h3 className="font-semibold text-foreground mb-4">
-          Jadwal {selectedDate === "2026-05-11" ? "Hari Ini" : selectedDate}
-        </h3>
-        
-        {selectedAppointments.length > 0 ? (
-          <div className="space-y-3">
-            {selectedAppointments.map(apt => (
-              <div 
-                key={apt.id}
-                className="flex items-center gap-4 p-4 rounded-xl border border-border hover:bg-muted/50 transition"
-              >
-                <div className="h-12 w-16 rounded-lg bg-primary/10 text-primary grid place-items-center font-bold">
-                  {apt.time}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <User className="h-4 w-4 text-muted-foreground" />
-                    <span className="font-medium text-foreground">{apt.patient}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-0.5">{apt.service}</p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  apt.status === "confirmed" 
-                    ? "bg-emerald-100 text-emerald-700" 
-                    : "bg-amber-100 text-amber-700"
-                }`}>
-                  {apt.status === "confirmed" ? "Terkonfirmasi" : "Menunggu"}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* Jadwal hari yang dipilih */}
+      <div className="border rounded-lg p-4 space-y-3">
+        <h2 className="font-semibold">
+          Jadwal {today === new Date().toISOString().split('T')[0] ? 'Hari Ini' : selectedDate.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+        </h2>
+        {loading ? <p>Memuat...</p> : jadwalHariIni.length === 0 ? (
+          <p className="text-gray-500 text-sm">Tidak ada jadwal untuk tanggal ini.</p>
         ) : (
-          <div className="text-center py-12">
-            <Clock className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
-            <p className="text-muted-foreground">Tidak ada jadwal untuk tanggal ini</p>
-          </div>
+          jadwalHariIni.map(j => (
+            <div key={j.id} className="flex items-center justify-between border rounded-lg p-3">
+              <div className="flex items-center gap-4">
+                <span className="text-primary/90 font-semibold">{j.waktu?.slice(0, 5)}</span>
+                <div>
+                  <p className="font-medium">{j.nama_pasien}</p>
+                  <p className="text-sm text-gray-500">{j.layanan}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => handleEdit(j)} className="bg-yellow-500 text-white px-2 py-1 rounded text-xs">Edit</button>
+                <button onClick={() => handleHapus(j.id)} className="bg-red-500 text-white px-2 py-1 rounded text-xs">Hapus</button>
+              </div>
+            </div>
+          ))
         )}
       </div>
-
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
-          <div className="bg-card rounded-2xl w-full max-w-lg p-6 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold text-foreground mb-4">Buat Jadwal Baru</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Pilih Pasien</label>
-                <select className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-card">
-                  <option>Siti Aminah</option>
-                  <option>Dewi Lestari</option>
-                  <option>Rina Hartati</option>
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Tanggal</label>
-                  <input 
-                    type="date"
-                    className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Waktu</label>
-                  <input 
-                    type="time"
-                    className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Layanan</label>
-                <select className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-card">
-                  <option>Pemeriksaan Kehamilan</option>
-                  <option>Imunisasi Bayi</option>
-                  <option>Konsultasi KB</option>
-                  <option>USG</option>
-                  <option>Kontrol Nifas</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1.5">Catatan</label>
-                <textarea 
-                  className="w-full border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none"
-                  rows={3}
-                  placeholder="Catatan tambahan..."
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-3 mt-6">
-              <button 
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition"
-              >
-                Simpan Jadwal
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
