@@ -18,9 +18,15 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
         </button>
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input 
-            placeholder="Cari pasien, rekam medis…" 
-            className="w-full bg-muted/50 rounded-lg pl-9 pr-3 h-9 text-sm outline-none focus:ring-2 focus:ring-primary/30 transition-all"
+          <input
+          placeholder="Cari pasien, rekam medis…"
+          className="w-full bg-muted/50 rounded-lg pl-9 pr-3 h-9 text-sm outline-none focus:ring-2 focus:ring-primary"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = (e.target as HTMLInputElement).value
+              if (val.trim()) window.location.href = `/dashboard/pasien?search=${encodeURIComponent(val)}`
+            }
+          }}
           />
         </div>
         <button className="relative h-9 w-9 grid place-items-center rounded-lg hover:bg-muted transition-colors">

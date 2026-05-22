@@ -1,130 +1,113 @@
-"use client"
+'use client'
 
-import Link from "next/link"
-import { 
-  Users, Calendar, FileText, CreditCard, 
-  Plus, Clock, ChevronRight
-} from "lucide-react"
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 
-const stats = [
-  { label: "Total Pasien", value: "1,284", delta: "+12.5%", up: true, icon: Users, color: "primary", href: "/dashboard/pasien" },
-  { label: "Kunjungan Hari Ini", value: "38", delta: "+8.2%", up: true, icon: Calendar, color: "emerald", href: "/dashboard/jadwal" },
-  { label: "Rekam Medis Baru", value: "24", delta: "+4.1%", up: true, icon: FileText, color: "rose", href: "/dashboard/rekam-medis" },
-  { label: "Pendapatan Hari Ini", value: "Rp 4.8M", delta: "-2.3%", up: false, icon: CreditCard, color: "amber", href: "/dashboard/keuangan" },
-]
-
-const queue = [
-  { no: "A-012", initial: "SA", name: "Siti Aminah", service: "Pemeriksaan Kehamilan", time: "09:30", status: "Menunggu" },
-  { no: "A-013", initial: "DL", name: "Dewi Lestari", service: "Imunisasi Bayi", time: "09:45", status: "Diperiksa" },
-  { no: "A-014", initial: "RH", name: "Rina Hartati", service: "Konsultasi KB", time: "10:00", status: "Menunggu" },
-  { no: "A-015", initial: "AP", name: "Aisyah Putri", service: "USG", time: "10:15", status: "Menunggu" },
-  { no: "A-016", initial: "MS", name: "Maya Sari", service: "Kontrol Nifas", time: "10:30", status: "Menunggu" },
-]
+const formatRp = (n: number) => {
+  if (n >= 1000000) return 'Rp ' + (n / 1000000).toFixed(1) + 'M'
+  if (n >= 1000) return 'Rp ' + (n / 1000).toFixed(0) + 'K'
+  return 'Rp ' + n.toLocaleString('id-ID')
+}
 
 export default function DashboardPage() {
+  const [totalPasien, setTotalPasien] = useState(0)
+  const [jadwalHariIni, setJadwalHariIni] = useState<any[]>([])
+  const [totalRekamMedis, setTotalRekamMedis] = useState(0)
+  const [pendapatanHariIni, setPendapatanHariIni] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  const today = new Date().toISOString().split('T')[0]
+
+  const fetchData = async () => {
+    const { count: cp } = await supabase.from('pasien').select('*', { count: 'exact', head: true })
+    const { data: jadwal } = await supabase.from('jadwal_praktik').select('*').eq('tanggal', today).order('waktu')
+    const { count: cr } = await supabase.from('rekam_medis').select('*', { count: 'exact', head: true })
+    const { data: transaksi } = await supabase.from('transaksi').select('*').eq('tipe', 'masuk').eq('tanggal', today)
+
+    setTotalPasien(cp || 0)
+    setJadwalHariIni(jadwal || [])
+    setTotalRekamMedis(cr || 0)
+    setPendapatanHariIni(transaksi?.reduce((a, t) => a + t.jumlah, 0) || 0)
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchData() }, [])
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Hero */}
-      <div className="relative overflow-hidden rounded-2xl p-6 lg:p-8 text-primary-foreground shadow-lg shadow-primary/20 bg-gradient-to-br from-primary to-primary/80">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.18),transparent_30%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_80%,rgba(255,255,255,0.12),transparent_35%)]" />
-        <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <p className="text-sm text-primary-foreground/85">Selamat Datang Kembali</p>
-            <h2 className="font-display text-2xl sm:text-3xl lg:text-4xl font-bold mt-2 leading-tight">
-              Bidan Sari Wijayanti
-            </h2>
-            <p className="text-primary-foreground/85 mt-2 text-sm max-w-md">
-              Hari ini ada <b>12 pasien</b> dijadwalkan dan <b>5 antrean</b> menunggu pemeriksaan.
-            </p>
-          </div>
-          <Link 
-            href="/dashboard/pasien?new=true"
-            className="self-start lg:self-auto inline-flex items-center gap-2 bg-white text-primary font-semibold px-5 py-3 rounded-xl shadow hover:shadow-md transition"
-          >
-            <Plus className="h-4 w-4" />
-            Daftarkan Pasien
-          </Link>
+      <div className="relative overflow-hidden rounded-2xl bg-primary/90 p-6 text-white">
+        <div>
+          <p className="text-green-100 text-sm">Selamat Datang Kembali</p>
+          <h1 className="text-3xl font-bold mt-1">Dashboard Klinik</h1>
+          <p className="text-green-100 mt-2">
+            Hari ini ada <span className="font-bold text-white">{jadwalHariIni.length} pasien</span> dijadwalkan.
+          </p>
         </div>
+        <Link href="/dashboard/pasien">
+          <button className="mt-4 bg-white text-primary/90 font-semibold px-4 py-2 rounded-xl text-sm">
+            + Daftarkan Pasien
+          </button>
+        </Link>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, index) => (
-          <Link 
-            key={index}
-            href={stat.href}
-            className="bg-card rounded-2xl border border-border p-5 hover:shadow-md hover:border-primary/30 transition-all group"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <p className="text-sm text-muted-foreground font-medium">{stat.label}</p>
-              <div className={`h-9 w-9 rounded-lg grid place-items-center ${
-                stat.color === 'primary' ? 'bg-primary/10 text-primary' :
-                stat.color === 'emerald' ? 'bg-emerald-100 text-emerald-600' :
-                stat.color === 'rose' ? 'bg-rose-100 text-rose-600' :
-                'bg-amber-100 text-amber-600'
-              }`}>
-                <stat.icon className="h-4 w-4" />
+      {/* Kartu Statistik */}
+      {loading ? <p>Memuat data...</p> : (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Pasien', value: totalPasien, icon: '👥', href: '/dashboard/pasien' },
+            { label: 'Jadwal Hari Ini', value: jadwalHariIni.length, icon: '📅', href: '/dashboard/jadwal' },
+            { label: 'Rekam Medis', value: totalRekamMedis, icon: '📋', href: '/dashboard/rekam-medis' },
+            { label: 'Pendapatan Hari Ini', value: formatRp(pendapatanHariIni), icon: '💰', href: '/dashboard/keuangan' },
+          ].map(k => (
+            <Link key={k.label} href={k.href}>
+              <div className="border rounded-xl p-4 space-y-2 hover:shadow-md transition cursor-pointer">
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-500 text-sm">{k.label}</p>
+                  <span className="text-xl">{k.icon}</span>
+                </div>
+                <p className="text-2xl font-bold">{k.value}</p>
               </div>
-            </div>
-            <p className="font-display text-3xl font-bold text-foreground">{stat.value}</p>
-            <p className={`text-xs font-semibold mt-2 inline-flex items-center gap-1 ${stat.up ? 'text-emerald-600' : 'text-rose-600'}`}>
-              <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path d={stat.up ? "M7 17 17 7M7 7h10v10" : "M17 7 7 17M17 17H7V7"} />
-              </svg>
-              {stat.delta}
-              <span className="text-muted-foreground font-medium ml-1">vs minggu lalu</span>
-            </p>
-          </Link>
-        ))}
-      </div>
-
-      {/* Queue */}
-      <div className="bg-card rounded-2xl border border-border p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="font-display text-lg font-bold text-foreground">Antrean Pasien Hari Ini</h3>
-            <p className="text-xs text-muted-foreground mt-1">Daftar antrean berdasarkan waktu kunjungan</p>
-          </div>
-          <Link 
-            href="/dashboard/jadwal"
-            className="text-sm font-semibold text-primary hover:text-primary/80 inline-flex items-center gap-1 transition-colors"
-          >
-            Lihat Semua
-            <ChevronRight className="h-4 w-4" />
-          </Link>
-        </div>
-        <div className="space-y-3">
-          {queue.map((item, index) => (
-            <Link 
-              key={index}
-              href={`/dashboard/pasien/${item.no}`}
-              className="flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 cursor-pointer transition-colors"
-            >
-              <div className="h-10 w-14 rounded-lg bg-primary/10 text-primary grid place-items-center font-display font-bold text-sm">
-                {item.no}
-              </div>
-              <div className="h-9 w-9 rounded-full bg-muted text-muted-foreground grid place-items-center text-xs font-bold">
-                {item.initial}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{item.name}</p>
-                <p className="text-xs text-muted-foreground">{item.service}</p>
-              </div>
-              <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Clock className="h-3.5 w-3.5" />
-                {item.time}
-              </div>
-              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                item.status === "Diperiksa" 
-                  ? "bg-emerald-100 text-emerald-700" 
-                  : "bg-amber-100 text-amber-700"
-              }`}>
-                {item.status}
-              </span>
             </Link>
           ))}
         </div>
+      )}
+
+      {/* Jadwal Hari Ini */}
+      <div className="border rounded-xl p-4 space-y-3">
+        <div className="flex justify-between items-center">
+          <div>
+            <h2 className="font-semibold">Jadwal Hari Ini</h2>
+            <p className="text-gray-500 text-sm">Daftar pasien berdasarkan waktu kunjungan</p>
+          </div>
+          <Link href="/dashboard/jadwal" className="text-green-600 text-sm font-medium">Lihat Semua →</Link>
+        </div>
+
+        {loading ? <p>Memuat...</p> : jadwalHariIni.length === 0 ? (
+          <p className="text-gray-400 text-sm">Tidak ada jadwal hari ini.</p>
+        ) : (
+          jadwalHariIni.map((j, i) => (
+            <div key={j.id} className="flex items-center justify-between border rounded-lg p-3">
+              <div className="flex items-center gap-3">
+                <span className="bg-primary/90 text-green-700 text-xs font-bold px-2 py-1 rounded-lg">
+                  A-{String(i + 1).padStart(3, '0')}
+                </span>
+                <div className="w-8 h-8 rounded-full bg-green-200 flex items-center justify-center text-xs font-bold text-green-700">
+                  {j.nama_pasien?.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{j.nama_pasien}</p>
+                  <p className="text-xs text-gray-500">{j.layanan}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <span>🕐</span>
+                <span>{j.waktu?.slice(0, 5)}</span>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

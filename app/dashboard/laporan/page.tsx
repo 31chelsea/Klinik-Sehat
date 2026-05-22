@@ -1,216 +1,165 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { Download, FileText, Calendar, TrendingUp, Users, CreditCard, BarChart3, PieChart } from "lucide-react"
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-const reports = [
-  { id: 1, name: "Laporan Kunjungan Pasien", period: "Mei 2026", type: "visits", count: 156, icon: Users },
-  { id: 2, name: "Laporan Keuangan", period: "Mei 2026", type: "finance", count: 45, icon: CreditCard },
-  { id: 3, name: "Laporan Rekam Medis", period: "Mei 2026", type: "records", count: 89, icon: FileText },
-  { id: 4, name: "Laporan Layanan", period: "Mei 2026", type: "services", count: 234, icon: BarChart3 },
-]
-
-const monthlyStats = [
-  { month: "Jan", visits: 120, income: 18500000 },
-  { month: "Feb", visits: 135, income: 21200000 },
-  { month: "Mar", visits: 142, income: 22800000 },
-  { month: "Apr", visits: 128, income: 19600000 },
-  { month: "Mei", visits: 156, income: 24850000 },
-]
-
-const serviceDistribution = [
-  { service: "Pemeriksaan Kehamilan", count: 45, percentage: 35, color: "bg-primary" },
-  { service: "Imunisasi Bayi", count: 32, percentage: 25, color: "bg-emerald-500" },
-  { service: "Konsultasi KB", count: 26, percentage: 20, color: "bg-amber-500" },
-  { service: "USG", count: 15, percentage: 12, color: "bg-rose-500" },
-  { service: "Lainnya", count: 10, percentage: 8, color: "bg-gray-400" },
-]
+const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 
 export default function LaporanPage() {
-  const [period, setPeriod] = useState("monthly")
+  const [totalPasien, setTotalPasien] = useState(0)
+  const [totalTransaksi, setTotalTransaksi] = useState(0)
+  const [totalRekamMedis, setTotalRekamMedis] = useState(0)
+  const [totalLayanan, setTotalLayanan] = useState(0)
+  const [transaksiList, setTransaksiList] = useState<any[]>([])
+  const [rekamMedisList, setRekamMedisList] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount)
+  const fetchData = async () => {
+    const { count: cp } = await supabase.from('pasien').select('*', { count: 'exact', head: true })
+    const { count: ct } = await supabase.from('transaksi').select('*', { count: 'exact', head: true })
+    const { count: cr } = await supabase.from('rekam_medis').select('*', { count: 'exact', head: true })
+    const { count: cl } = await supabase.from('harga_layanan').select('*', { count: 'exact', head: true })
+    const { data: t } = await supabase.from('transaksi').select('*').eq('tipe', 'masuk').order('tanggal')
+    const { data: r } = await supabase.from('rekam_medis').select('*')
+
+    setTotalPasien(cp || 0)
+    setTotalTransaksi(ct || 0)
+    setTotalRekamMedis(cr || 0)
+    setTotalLayanan(cl || 0)
+    setTransaksiList(t || [])
+    setRekamMedisList(r || [])
+    setLoading(false)
   }
 
-  const maxVisits = Math.max(...monthlyStats.map(s => s.visits))
+  useEffect(() => { fetchData() }, [])
+
+  const totalPendapatan = transaksiList.reduce((a, t) => a + t.jumlah, 0)
+
+  // Distribusi layanan dari rekam medis
+  const distribusi: Record<string, number> = {}
+  rekamMedisList.forEach(r => {
+    const key = r.jenis_pemeriksaan || r.diagnosis || 'Lainnya'
+    distribusi[key] = (distribusi[key] || 0) + 1
+  })
+  const distribusiArr = Object.entries(distribusi).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const totalDist = rekamMedisList.length || 1
+
+  // Pendapatan per bulan
+  const perBulan: Record<string, number> = {}
+  transaksiList.forEach(t => {
+    const key = t.tanggal?.slice(0, 7)
+    if (key) perBulan[key] = (perBulan[key] || 0) + t.jumlah
+  })
+  const perBulanArr = Object.entries(perBulan).sort().slice(-5)
+  const maxBulan = Math.max(...perBulanArr.map(b => b[1]), 1)
+
+  const bulanNama: Record<string, string> = {
+    '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
+    '05': 'Mei', '06': 'Jun', '07': 'Jul', '08': 'Agu',
+    '09': 'Sep', '10': 'Okt', '11': 'Nov', '12': 'Des'
+  }
+
+  const formatBulan = (key: string) => {
+    const [year, month] = key.split('-')
+    return `${bulanNama[month]} ${year}`
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-6 space-y-4">
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Laporan</h1>
-          <p className="text-sm text-muted-foreground mt-1">Analisis dan laporan klinik</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <select 
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="bg-card border border-border rounded-xl px-4 h-10 text-sm outline-none focus:ring-2 focus:ring-primary/30"
-          >
-            <option value="weekly">Mingguan</option>
-            <option value="monthly">Bulanan</option>
-            <option value="yearly">Tahunan</option>
-          </select>
-          <button className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-4 py-2.5 rounded-xl hover:bg-primary/90 transition">
-            <Download className="h-4 w-4" />
-            Export Laporan
-          </button>
+          <h1 className="text-2xl font-bold">Laporan</h1>
+          <p className="text-gray-500 text-sm">Analisis dan laporan klinik</p>
         </div>
       </div>
 
-      {/* Quick Reports */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {reports.map((report) => (
-          <div 
-            key={report.id}
-            className="bg-card rounded-2xl border border-border p-5 hover:shadow-md hover:border-primary/30 transition-all cursor-pointer group"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/10 text-primary grid place-items-center">
-                <report.icon className="h-5 w-5" />
-              </div>
-              <button className="opacity-0 group-hover:opacity-100 h-8 w-8 rounded-lg hover:bg-muted grid place-items-center transition">
-                <Download className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </div>
-            <h3 className="font-semibold text-foreground text-sm">{report.name}</h3>
-            <div className="flex items-center gap-2 mt-2">
-              <Calendar className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">{report.period}</span>
-            </div>
-            <p className="text-2xl font-bold text-foreground mt-3">{report.count}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Visits Chart */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-semibold text-foreground">Tren Kunjungan</h3>
-              <p className="text-xs text-muted-foreground mt-1">Jumlah kunjungan pasien per bulan</p>
-            </div>
-            <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-semibold">
-              <TrendingUp className="h-4 w-4" />
-              +12.5%
-            </div>
-          </div>
-          
-          <div className="flex items-end justify-between gap-2 h-40">
-            {monthlyStats.map((stat, i) => (
-              <div key={i} className="flex-1 flex flex-col items-center gap-2">
-                <div 
-                  className="w-full bg-primary/20 rounded-t-lg relative overflow-hidden transition-all hover:bg-primary/30"
-                  style={{ height: `${(stat.visits / maxVisits) * 100}%` }}
-                >
-                  <div 
-                    className="absolute bottom-0 left-0 right-0 bg-primary rounded-t-lg"
-                    style={{ height: `${(stat.visits / maxVisits) * 100}%` }}
-                  />
+      {loading ? <p>Memuat data...</p> : (
+        <>
+          {/* Kartu Ringkasan */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Total Pasien', value: totalPasien, satuan: 'pasien', icon: '👥', color: 'bg-green-100 text-green-600' },
+              { label: 'Total Transaksi', value: totalTransaksi, satuan: 'transaksi', icon: '💳', color: 'bg-blue-100 text-blue-600' },
+              { label: 'Rekam Medis', value: totalRekamMedis, satuan: 'rekaman', icon: '📋', color: 'bg-purple-100 text-purple-600' },
+              { label: 'Daftar Layanan', value: totalLayanan, satuan: 'layanan', icon: '🏥', color: 'bg-orange-100 text-orange-600' },
+            ].map(k => (
+              <div key={k.label} className="border rounded-xl p-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-gray-500 text-sm">{k.label}</p>
+                  <span className={`p-2 rounded-lg text-lg ${k.color}`}>{k.icon}</span>
                 </div>
-                <span className="text-xs text-muted-foreground font-medium">{stat.month}</span>
+                <p className="text-3xl font-bold">{k.value}</p>
+                <p className="text-xs text-gray-400">{k.satuan} terdaftar</p>
               </div>
             ))}
           </div>
 
-          <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Total Kunjungan</p>
-              <p className="text-lg font-bold text-foreground">{monthlyStats.reduce((acc, s) => acc + s.visits, 0)}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Rata-rata/bulan</p>
-              <p className="text-lg font-bold text-foreground">{Math.round(monthlyStats.reduce((acc, s) => acc + s.visits, 0) / monthlyStats.length)}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Service Distribution */}
-        <div className="bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-semibold text-foreground">Distribusi Layanan</h3>
-              <p className="text-xs text-muted-foreground mt-1">Persentase layanan yang paling sering digunakan</p>
-            </div>
-            <PieChart className="h-5 w-5 text-muted-foreground" />
-          </div>
-
-          <div className="space-y-4">
-            {serviceDistribution.map((item, i) => (
-              <div key={i}>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-sm text-foreground">{item.service}</span>
-                  <span className="text-sm font-semibold text-foreground">{item.count} ({item.percentage}%)</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Distribusi Layanan */}
+            <div className="border rounded-xl p-4 space-y-3">
+              <h2 className="font-semibold">Distribusi Layanan</h2>
+              <p className="text-gray-500 text-sm">Berdasarkan rekam medis</p>
+              {distribusiArr.length === 0 ? (
+                <p className="text-gray-400 text-sm">Belum ada data rekam medis.</p>
+              ) : distribusiArr.map(([nama, jumlah]) => (
+                <div key={nama} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span>{nama}</span>
+                    <span className="text-gray-500">{jumlah} ({Math.round(jumlah / totalDist * 100)}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2">
+                    <div className="bg-primary/90 h-2 rounded-full" style={{ width: `${jumlah / totalDist * 100}%` }} />
+                  </div>
                 </div>
-                <div className="h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className={`h-full ${item.color} rounded-full transition-all`}
-                    style={{ width: `${item.percentage}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+              ))}
+            </div>
 
-        {/* Income Chart */}
-        <div className="lg:col-span-2 bg-card rounded-2xl border border-border p-5">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="font-semibold text-foreground">Pendapatan Bulanan</h3>
-              <p className="text-xs text-muted-foreground mt-1">Grafik pendapatan klinik 5 bulan terakhir</p>
-            </div>
-            <div className="flex items-center gap-1.5 text-emerald-600 text-sm font-semibold">
-              <TrendingUp className="h-4 w-4" />
-              +18.7%
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3">Bulan</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3">Kunjungan</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3">Pendapatan</th>
-                  <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-3">Grafik</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {monthlyStats.map((stat, i) => (
-                  <tr key={i} className="hover:bg-muted/30 transition">
-                    <td className="py-3 font-medium text-foreground">{stat.month} 2026</td>
-                    <td className="py-3 text-muted-foreground">{stat.visits} pasien</td>
-                    <td className="py-3 font-semibold text-foreground">{formatCurrency(stat.income)}</td>
-                    <td className="py-3">
-                      <div className="h-2 w-32 bg-muted rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-primary rounded-full"
-                          style={{ width: `${(stat.income / 25000000) * 100}%` }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Total Pendapatan</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(monthlyStats.reduce((acc, s) => acc + s.income, 0))}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">Rata-rata/bulan</p>
-              <p className="text-lg font-bold text-foreground">{formatCurrency(Math.round(monthlyStats.reduce((acc, s) => acc + s.income, 0) / monthlyStats.length))}</p>
+            {/* Pendapatan Bulanan */}
+            <div className="border rounded-xl p-4 space-y-3">
+              <h2 className="font-semibold">Pendapatan Bulanan</h2>
+              <p className="text-gray-500 text-sm">5 bulan terakhir</p>
+              {perBulanArr.length === 0 ? (
+                <p className="text-gray-400 text-sm">Belum ada data transaksi.</p>
+              ) : (
+                <>
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-gray-400 text-xs uppercase">
+                        <th className="text-left py-1">Bulan</th>
+                        <th className="text-left py-1">Pendapatan</th>
+                        <th className="text-left py-1">Grafik</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {perBulanArr.map(([key, jumlah]) => (
+                        <tr key={key} className="border-t">
+                          <td className="py-2">{formatBulan(key)}</td>
+                          <td className="py-2">{formatRp(jumlah)}</td>
+                          <td className="py-2 w-32">
+                            <div className="w-full bg-gray-100 rounded-full h-2">
+                              <div className="bg-primary/90 h-2 rounded-full" style={{ width: `${jumlah / maxBulan * 100}%` }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="flex justify-between text-sm pt-2 border-t">
+                    <div>
+                      <p className="text-gray-400">Total Pendapatan</p>
+                      <p className="font-bold">{formatRp(totalPendapatan)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-gray-400">Rata-rata/bulan</p>
+                      <p className="font-bold">{formatRp(Math.round(totalPendapatan / (perBulanArr.length || 1)))}</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
   )
 }
