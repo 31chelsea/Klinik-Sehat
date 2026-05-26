@@ -1,9 +1,11 @@
-"use client"
+'use client'
 
-import { useState } from "react"
-import { Sidebar } from "@/components/dashboard/sidebar"
-import { Topbar } from "@/components/dashboard/topbar"
-import { AIChatbot } from "@/components/dashboard/ai-chatbot"
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { Sidebar } from '@/components/dashboard/sidebar'
+import { Topbar } from '@/components/dashboard/topbar'
+import { AIChatbot } from '@/components/dashboard/ai-chatbot'
+import { supabase } from '@/lib/supabase'
 
 export default function DashboardLayout({
   children,
@@ -11,6 +13,20 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        router.push('/login')
+      } else {
+        setLoading(false)
+      }
+    })
+  }, [])
+
+  if (loading) return <div className="flex min-h-screen items-center justify-center">Memuat...</div>
 
   return (
     <div className="flex min-h-screen bg-background">

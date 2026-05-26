@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, ArrowLeft } from "lucide-react"
+import { supabase } from '@/lib/supabase'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -13,15 +14,19 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    
-    // Simulate login - in production, this would be a real API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Redirect to dashboard after login
-    router.push("/dashboard")
+  e.preventDefault()
+  setIsLoading(true)
+  
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  
+  if (error) {
+    alert('Login gagal: ' + error.message)
+  } else {
+    router.push('/dashboard')
   }
+  
+  setIsLoading(false)
+}
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">

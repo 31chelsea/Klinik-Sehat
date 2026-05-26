@@ -26,6 +26,7 @@ export default function JadwalPage() {
   const [list, setList] = useState<Jadwal[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [form, setForm] = useState(emptyForm)
   const [editId, setEditId] = useState<string | null>(null)
   const [selectedDate, setSelectedDate] = useState(new Date())
@@ -98,8 +99,42 @@ export default function JadwalPage() {
       {showForm && (
         <div className="border rounded p-4 space-y-3 bg-gray-50">
           <h2 className="font-semibold">{editId ? 'Edit Jadwal' : 'Form Buat Jadwal'}</h2>
-          <input placeholder="Nama Pasien" className="w-full border rounded p-2"
-            value={form.nama_pasien} onChange={(e) => setForm({ ...form, nama_pasien: e.target.value })} />
+          <div className="relative">
+  <input
+    placeholder="Nama Pasien"
+    className="w-full border rounded p-2"
+    value={form.nama_pasien}
+    onChange={async (e) => {
+      setForm({ ...form, nama_pasien: e.target.value })
+      if (e.target.value.length > 1) {
+        const { data } = await supabase
+          .from('pasien')
+          .select('nama')
+          .ilike('nama', `%${e.target.value}%`)
+          .limit(5)
+        setSuggestions(data?.map(p => p.nama) || [])
+      } else {
+        setSuggestions([])
+      }
+    }}
+  />
+  {suggestions.length > 0 && (
+    <div className="absolute z-10 w-full bg-white border rounded shadow-md mt-1">
+      {suggestions.map((s) => (
+        <div
+          key={s}
+          className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm"
+          onClick={() => {
+            setForm({ ...form, nama_pasien: s })
+            setSuggestions([])
+          }}
+        >
+          {s}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
           <input type="date" className="w-full border rounded p-2"
             value={form.tanggal} onChange={(e) => setForm({ ...form, tanggal: e.target.value })} />
           <input type="time" className="w-full border rounded p-2"

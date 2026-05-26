@@ -15,6 +15,7 @@ export default function RekamMedisPage() {
   const [list, setList] = useState<RekamMedis[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [suggestions, setSuggestions] = useState<string[]>([])
   const [selected, setSelected] = useState<RekamMedis | null>(null)
   const [form, setForm] = useState({
     nama_pasien: '',
@@ -49,19 +50,97 @@ export default function RekamMedisPage() {
           <h1 className="text-2xl font-bold">Rekam Medis</h1>
           <p className="text-gray-500 text-sm">Riwayat pemeriksaan dan tindakan medis</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-primary/90 text-white px-4 py-2 rounded-full"
-        >
-          + Tambah Rekam Medis
-        </button>
+        <div className="flex gap-2">
+  <label className="bg-white border border-green-600 text-green-600 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">
+    📥 Import Excel
+    <input
+      type="file"
+      accept=".xlsx,.xls"
+      className="hidden"
+      onChange={async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        const XLSX = await import('xlsx')
+        const reader = new FileReader()
+        reader.onload = async (evt) => {
+          const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const sheet = workbook.Sheets[workbook.SheetNames[0]]
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet)
+
+          const excelDateToString = (val: any) => {
+            if (!val) return ''
+            if (typeof val === 'number') {
+              const date = new Date((val - 25569) * 86400 * 1000)
+              return date.toISOString().split('T')[0]
+            }
+            return String(val)
+          }
+
+          const rekamData = rows.map(row => ({
+            nama_pasien: row['nama_pasien'] || row['Nama'] || row['NAMA'] || '',
+            tanggal_pemeriksaan: excelDateToString(row['tanggal_pemeriksaan'] || row['Tanggal Pemeriksaan'] || row['TANGGAL PEMERIKSAAN'] || ''),
+            diagnosis: row['diagnosis'] || row['Diagnosa'] || row['DIAGNOSA'] || '',
+            catatan: row['catatan'] || row['Catatan'] || row['CATATAN'] || '',
+          })).filter(r => r.nama_pasien)
+
+          const { error } = await supabase.from('rekam_medis').insert(rekamData)
+          if (error) alert('Gagal import: ' + error.message)
+          else { alert(`Berhasil import ${rekamData.length} rekam medis!`); fetchData() }
+        }
+        reader.readAsArrayBuffer(file)
+        e.target.value = ''
+      }}
+    />
+  </label>
+  <button
+    onClick={() => setShowForm(!showForm)}
+    className="bg-green-600 text-white px-4 py-2 rounded-full"
+  >
+    + Tambah Rekam Medis
+  </button>
+</div>
       </div>
 
       {showForm && (
         <div className="border rounded p-4 space-y-3 bg-gray-50">
           <h2 className="font-semibold">Form Tambah Rekam Medis</h2>
-          <input placeholder="Nama Pasien" className="w-full border rounded p-2"
-            value={form.nama_pasien} onChange={(e) => setForm({ ...form, nama_pasien: e.target.value })} />
+          <div className="relative">
+  <input
+    placeholder="Nama Pasien"
+    className="w-full border rounded p-2"
+    value={form.nama_pasien}
+    onChange={async (e) => {
+      setForm({ ...form, nama_pasien: e.target.value })
+      if (e.target.value.length > 1) {
+        const { data } = await supabase
+          .from('pasien')
+          .select('nama')
+          .ilike('nama', `%${e.target.value}%`)
+          .limit(5)
+        setSuggestions(data?.map(p => p.nama) || [])
+      } else {
+        setSuggestions([])
+      }
+    }}
+  />
+  {suggestions.length > 0 && (
+    <div className="absolute z-10 w-full bg-white border rounded shadow-md mt-1">
+      {suggestions.map((s) => (
+        <div
+          key={s}
+          className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm"
+          onClick={() => {
+            setForm({ ...form, nama_pasien: s })
+            setSuggestions([])
+          }}
+        >
+          {s}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
           <input type="date" className="w-full border rounded p-2"
             value={form.tanggal_pemeriksaan} onChange={(e) => setForm({ ...form, tanggal_pemeriksaan: e.target.value })} />
           <input placeholder="Diagnosis" className="w-full border rounded p-2"
