@@ -12,6 +12,16 @@ type Pasien = {
   nomor_telepon: string
 }
 
+const hitungUmur = (tanggal_lahir: string) => {
+  if (!tanggal_lahir) return '-'
+  const today = new Date()
+  const lahir = new Date(tanggal_lahir)
+  let umur = today.getFullYear() - lahir.getFullYear()
+  const m = today.getMonth() - lahir.getMonth()
+  if (m < 0 || (m === 0 && today.getDate() < lahir.getDate())) umur--
+  return umur + ' tahun'
+}
+
 const emptyForm = { nama: '', tanggal_lahir: '', jenis_kelamin: '', alamat: '', nomor_telepon: '' }
 
 export default function PasienPage() {
@@ -104,6 +114,7 @@ export default function PasienPage() {
             <tr>
               <th className="border p-2 text-left">Nama</th>
               <th className="border p-2 text-left">Tgl Lahir</th>
+              <th className="border p-2 text-left">Umur</th>
               <th className="border p-2 text-left">Jenis Kelamin</th>
               <th className="border p-2 text-left">Alamat</th>
               <th className="border p-2 text-left">No. Telepon</th>
@@ -115,6 +126,7 @@ export default function PasienPage() {
               <tr key={p.id}>
                 <td className="border p-2">{p.nama}</td>
                 <td className="border p-2">{p.tanggal_lahir}</td>
+                <td className="border p-2">{hitungUmur(p.tanggal_lahir)}</td>
                 <td className="border p-2">{p.jenis_kelamin}</td>
                 <td className="border p-2">{p.alamat}</td>
                 <td className="border p-2">{p.nomor_telepon}</td>
