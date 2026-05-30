@@ -15,6 +15,7 @@ export default function RekamMedisPage() {
   const [list, setList] = useState<RekamMedis[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [selected, setSelected] = useState<RekamMedis | null>(null)
   const [form, setForm] = useState({
@@ -33,15 +34,18 @@ export default function RekamMedisPage() {
   useEffect(() => { fetchData() }, [])
 
   const handleSimpan = async () => {
+  if (editId) {
+    const { error } = await supabase.from('rekam_medis').update(form).eq('id', editId)
+    if (error) { alert('Gagal mengupdate: ' + error.message); return }
+  } else {
     const { error } = await supabase.from('rekam_medis').insert([form])
-    if (!error) {
-      setForm({ nama_pasien: '', tanggal_pemeriksaan: '', diagnosis: '', catatan: '' })
-      setShowForm(false)
-      fetchData()
-    } else {
-      alert('Gagal menyimpan: ' + error.message)
-    }
+    if (error) { alert('Gagal menyimpan: ' + error.message); return }
   }
+  setForm({ nama_pasien: '', tanggal_pemeriksaan: '', diagnosis: '', catatan: '' })
+  setEditId(null)
+  setShowForm(false)
+  fetchData()
+}
 
   return (
     <div className="p-6 space-y-4">
@@ -51,7 +55,7 @@ export default function RekamMedisPage() {
           <p className="text-gray-500 text-sm">Riwayat pemeriksaan dan tindakan medis</p>
         </div>
         <div className="flex gap-2">
-  <label className="bg-white border border-green-600 text-green-600 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">
+  <label className="bg-white border border-primary/90 text-primary/90 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">
     📥 Import Excel
     <input
       type="file"
@@ -95,7 +99,7 @@ export default function RekamMedisPage() {
   </label>
   <button
     onClick={() => setShowForm(!showForm)}
-    className="bg-green-600 text-white px-4 py-2 rounded-full"
+    className="bg-primary/90 text-white px-4 py-2 rounded-full"
   >
     + Tambah Rekam Medis
   </button>
@@ -129,7 +133,7 @@ export default function RekamMedisPage() {
       {suggestions.map((s) => (
         <div
           key={s}
-          className="px-3 py-2 hover:bg-green-50 cursor-pointer text-sm"
+          className="px-3 py-2 hover:bg-primary/90 cursor-pointer text-sm"
           onClick={() => {
             setForm({ ...form, nama_pasien: s })
             setSuggestions([])
@@ -191,6 +195,31 @@ export default function RekamMedisPage() {
               onClick={() => setSelected(item)}
               className="border rounded-lg p-4 space-y-2 cursor-pointer hover:shadow-md transition"
             >
+              <div className="flex gap-2 pt-2">
+  <button
+    onClick={(e) => {
+      e.stopPropagation()
+      setForm({
+        nama_pasien: item.nama_pasien,
+        tanggal_pemeriksaan: item.tanggal_pemeriksaan,
+        diagnosis: item.diagnosis,
+        catatan: item.catatan,
+      })
+      setEditId(item.id)
+      setShowForm(true)
+    }}
+    className="bg-yellow-500 text-white px-2 py-1 rounded text-xs"
+  >Edit</button>
+  <button
+    onClick={async (e) => {
+      e.stopPropagation()
+      if (!confirm('Hapus rekam medis ini?')) return
+      await supabase.from('rekam_medis').delete().eq('id', item.id)
+      fetchData()
+    }}
+    className="bg-red-500 text-white px-2 py-1 rounded text-xs"
+  >Hapus</button>
+</div>
               <div className="flex justify-between items-start">
                 <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
                   RM{String(i + 1).padStart(3, '0')}
