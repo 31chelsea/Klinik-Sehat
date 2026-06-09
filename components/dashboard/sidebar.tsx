@@ -31,7 +31,7 @@ export function Sidebar({ open }: { open: boolean }) {
   }
 
   return (
-    <aside className={`${open ? 'w-64' : 'w-0 -ml-64'} bg-card border-r border-border flex flex-col shrink-0 transition-all duration-300 fixed lg:relative h-full z-40`}>
+    <aside className={`${open ? 'w-64' : 'w-0 overflow-hidden'} bg-card border-r border-border flex flex-col shrink-0 transition-all duration-300 fixed lg:relative h-full z-40`}>
       <div className="px-5 py-5 flex items-center gap-3 border-b border-border">
         <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 grid place-items-center shadow-lg shadow-primary/30">
           <Heart className="h-5 w-5 text-primary-foreground" />
