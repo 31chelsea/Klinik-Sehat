@@ -29,7 +29,10 @@ export default function JadwalPage() {
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [form, setForm] = useState(emptyForm)
   const [editId, setEditId] = useState<string | null>(null)
-  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(() => {
+  const now = new Date()
+  return new Date(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}T12:00:00`)
+})
 
   const fetchData = async () => {
     const { data } = await supabase.from('jadwal_praktik').select('*').order('tanggal').order('waktu')
