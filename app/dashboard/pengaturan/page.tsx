@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from "react"
 import { useTheme } from "next-themes"
 import { User, Building2, Bell, Shield, Palette, Save, Camera, Sun, Moon, Check } from "lucide-react"
+import { supabase } from '@/lib/supabase'
 
 const tabs = [
   { id: "profile", label: "Profil", icon: User },
   { id: "clinic", label: "Klinik", icon: Building2 },
   { id: "notifications", label: "Notifikasi", icon: Bell },
-  { id: "security", label: "Keamanan", icon: Shield },
   { id: "appearance", label: "Tampilan", icon: Palette },
 ]
 
@@ -21,8 +21,43 @@ const colorThemes = [
 ]
 
 export default function PengaturanPage() {
-  const [activeTab, setActiveTab] = useState("profile")
+  const [profil, setProfil] = useState({ nama_lengkap: 'Bidan Sari Wijayanti', email: 'sari@kliniksehat.com', no_telepon: '081234567890', no_str: 'STR-BD-123456789' })
+  const [profilId, setProfilId] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [klinik, setKlinik] = useState({ nama_klinik: 'KlinikSehat', alamat: 'Jl. Kesehatan No. 123, Kelurahan Sehat, Kecamatan Bahagia', no_telepon: '021-12345678', no_izin: 'SIP-123/2026' })
+  const [klinikId, setKlinikId] = useState<string | null>(null)
+  const [savedKlinik, setSavedKlinik] = useState(false)
+
+  useEffect(() => {
+    supabase.from('profil').select('*').limit(1).single().then(({ data }) => {
+      if (data) { setProfil(data); setProfilId(data.id) }
+    })
+    supabase.from('klinik').select('*').limit(1).single().then(({ data }) => {
+      if (data) { setKlinik(data); setKlinikId(data.id) }
+    })
+  }, [])
+
+  const handleSimpanProfil = async () => {
+    if (profilId) {
+      await supabase.from('profil').update(profil).eq('id', profilId)
+    } else {
+      const { data } = await supabase.from('profil').insert([profil]).select().single()
+      if (data) setProfilId(data.id)
+    }
+    setSaved(true)
+    setTimeout(() => setSaved(false), 3000)
+  }
+  const handleSimpanKlinik = async () => {
+  if (klinikId) {
+    await supabase.from('klinik').update(klinik).eq('id', klinikId)
+  } else {
+    const { data } = await supabase.from('klinik').insert([klinik]).select().single()
+    if (data) setKlinikId(data.id)
+  }
+  setSavedKlinik(true)
+  setTimeout(() => setSavedKlinik(false), 3000)
+}
+  const [activeTab, setActiveTab] = useState("profile")
   const [mounted, setMounted] = useState(false)
   const { theme, setTheme } = useTheme()
   const [selectedColor, setSelectedColor] = useState(() => {
@@ -124,7 +159,7 @@ export default function PengaturanPage() {
                   </button>
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground">Bidan Sari Wijayanti</p>
+                  <p className="font-semibold text-foreground">{profil.nama_lengkap}</p>
                   <p className="text-sm text-muted-foreground">Administrator</p>
                 </div>
               </div>
@@ -133,28 +168,32 @@ export default function PengaturanPage() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Nama Lengkap</label>
                   <input 
-                    defaultValue="Bidan Sari Wijayanti"
+                    value={profil.nama_lengkap} 
+                    onChange={(e) => setProfil({ ...profil, nama_lengkap: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
                   <input 
-                    defaultValue="sari@kliniksehat.com"
+                    value={profil.email}
+                    onChange={(e) => setProfil({ ...profil, email: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">No. Telepon</label>
                   <input 
-                    defaultValue="081234567890"
+                    value={profil.no_telepon}
+                    onChange={(e) => setProfil({ ...profil, no_telepon: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">No. STR</label>
                   <input 
-                    defaultValue="STR-BD-123456789"
+                    value={profil.no_str}
+                    onChange={(e) => setProfil({ ...profil, no_str: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                   />
                 </div>
@@ -173,14 +212,16 @@ export default function PengaturanPage() {
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Nama Klinik</label>
                   <input 
-                    defaultValue="KlinikSehat"
+                    value={klinik.nama_klinik}
+                    onChange={(e) => setKlinik({ ...klinik, nama_klinik: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">Alamat</label>
                   <textarea 
-                    defaultValue="Jl. Kesehatan No. 123, Kelurahan Sehat, Kecamatan Bahagia"
+                    value={klinik.alamat}
+                    onChange={(e) => setKlinik({ ...klinik, alamat: e.target.value })}
                     className="w-full border border-border rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 resize-none bg-background text-foreground"
                     rows={3}
                   />
@@ -189,14 +230,16 @@ export default function PengaturanPage() {
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1.5">No. Telepon Klinik</label>
                     <input 
-                      defaultValue="021-12345678"
+                      value={klinik.no_telepon}
+                      onChange={(e) => setKlinik({ ...klinik, no_telepon: e.target.value })}
                       className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-foreground mb-1.5">No. Izin Praktik</label>
                     <input 
-                      defaultValue="SIP-123/2026"
+                      value={klinik.no_izin}
+                      onChange={(e) => setKlinik({ ...klinik, no_izin: e.target.value })}
                       className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
                     />
                   </div>
@@ -239,55 +282,6 @@ export default function PengaturanPage() {
                     </button>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {activeTab === "security" && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground mb-1">Keamanan Akun</h2>
-                <p className="text-sm text-muted-foreground">Kelola password dan keamanan akun</p>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Password Saat Ini</label>
-                  <input 
-                    type="password"
-                    placeholder="Masukkan password saat ini"
-                    className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Password Baru</label>
-                  <input 
-                    type="password"
-                    placeholder="Masukkan password baru"
-                    className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">Konfirmasi Password Baru</label>
-                  <input 
-                    type="password"
-                    placeholder="Konfirmasi password baru"
-                    className="w-full border border-border rounded-xl px-4 h-11 text-sm outline-none focus:ring-2 focus:ring-primary/30 bg-background text-foreground"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-border">
-                <h3 className="font-medium text-foreground mb-3">Autentikasi Dua Faktor</h3>
-                <div className="flex items-center justify-between p-4 bg-muted/50 rounded-xl">
-                  <div>
-                    <p className="font-medium text-foreground">2FA via SMS</p>
-                    <p className="text-sm text-muted-foreground">Amankan akun dengan verifikasi SMS</p>
-                  </div>
-                  <button className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition">
-                    Aktifkan
-                  </button>
-                </div>
               </div>
             </div>
           )}
@@ -399,8 +393,8 @@ export default function PengaturanPage() {
             {saved && (
               <span className="text-sm text-emerald-600 font-medium">Perubahan tersimpan!</span>
             )}
-            <button 
-              onClick={handleSave}
+            <button
+              onClick={handleSimpanKlinik}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-xl hover:bg-primary/90 transition"
             >
               <Save className="h-4 w-4" />
