@@ -87,12 +87,56 @@ export default function KeuanganPage() {
           <h1 className="text-2xl font-bold">Keuangan</h1>
           <p className="text-gray-500 text-sm">Kelola pendapatan dan pengeluaran klinik</p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className="bg-primary/90 text-white px-4 py-2 rounded-full"
-        >
-          + Transaksi Baru
-        </button>
+        <div className="flex gap-2">
+  <label className="bg-white border border-primary/90 text-primary/90 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">
+    📥 Import Excel
+    <input
+      type="file"
+      accept=".xlsx,.xls"
+      className="hidden"
+      onChange={async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        const XLSX = await import('xlsx')
+        const reader = new FileReader()
+        reader.onload = async (evt) => {
+          const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const sheet = workbook.Sheets[workbook.SheetNames[0]]
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet)
+
+          const excelDateToString = (val: any) => {
+            if (!val) return ''
+            if (typeof val === 'number') {
+              const date = new Date((val - 25569) * 86400 * 1000)
+              return date.toISOString().split('T')[0]
+            }
+            return String(val)
+          }
+
+          const transaksiData = rows.map(row => ({
+            keterangan: row['keterangan'] || row['Keterangan'] || '',
+            tanggal: excelDateToString(row['tanggal'] || row['Tanggal'] || ''),
+            jumlah: parseInt(row['jumlah'] || row['Jumlah'] || 0),
+            tipe: row['tipe'] || row['Tipe'] || 'masuk',
+          })).filter(r => r.keterangan)
+
+          const { error } = await supabase.from('transaksi').insert(transaksiData)
+          if (error) alert('Gagal import: ' + error.message)
+          else { alert(`Berhasil import ${transaksiData.length} transaksi!`); fetchData() }
+        }
+        reader.readAsArrayBuffer(file)
+        e.target.value = ''
+      }}
+    />
+  </label>
+  <button
+    onClick={() => setShowForm(!showForm)}
+    className="bg-primary/90 text-white px-4 py-2 rounded-full"
+  >
+    + Transaksi Baru
+  </button>
+</div>
       </div>
 
       {/* Form Transaksi */}

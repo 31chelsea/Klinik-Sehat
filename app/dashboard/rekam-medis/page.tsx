@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useSearchParams } from 'next/navigation'
 
 type RekamMedis = {
   id: string
@@ -18,6 +19,8 @@ export default function RekamMedisPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [selected, setSelected] = useState<RekamMedis | null>(null)
+  const searchParams = useSearchParams()
+  const namaFilter = searchParams.get('nama') || ''
   const [form, setForm] = useState({
     nama_pasien: '',
     tanggal_pemeriksaan: '',
@@ -26,10 +29,12 @@ export default function RekamMedisPage() {
   })
 
   const fetchData = async () => {
-    const { data } = await supabase.from('rekam_medis').select('*').order('tanggal_pemeriksaan', { ascending: false })
-    if (data) setList(data)
-    setLoading(false)
-  }
+  let query = supabase.from('rekam_medis').select('*').order('tanggal_pemeriksaan', { ascending: false })
+  if (namaFilter) query = query.ilike('nama_pasien', `%${namaFilter}%`)
+  const { data } = await query
+  if (data) setList(data)
+  setLoading(false)
+}
 
   useEffect(() => { fetchData() }, [])
 
@@ -53,6 +58,12 @@ export default function RekamMedisPage() {
         <div>
           <h1 className="text-2xl font-bold">Rekam Medis</h1>
           <p className="text-gray-500 text-sm">Riwayat pemeriksaan dan tindakan medis</p>
+          {namaFilter && (
+  <div className="flex items-center gap-2 text-sm text-gray-500">
+    <span>Filter: <strong>{namaFilter}</strong></span>
+    <a href="/dashboard/rekam-medis" className="text-red-400 hover:text-red-600">✕ Hapus filter</a>
+  </div>
+)}
         </div>
         <div className="flex gap-2">
   <label className="bg-white border border-primary/90 text-primary/90 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">

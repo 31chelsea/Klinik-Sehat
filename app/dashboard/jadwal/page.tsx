@@ -65,7 +65,8 @@ export default function JadwalPage() {
     fetchData()
   }
 
-  const today = selectedDate.toISOString().split('T')[0]
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const today = `${selectedDate.getFullYear()}-${pad(selectedDate.getMonth() + 1)}-${pad(selectedDate.getDate())}`
   const jadwalHariIni = list.filter(j => j.tanggal === today)
 
   const getDaysInMonth = (year: number, month: number) => new Date(year, month + 1, 0).getDate()
@@ -88,12 +89,57 @@ export default function JadwalPage() {
           <h1 className="text-2xl font-bold">Jadwal Praktik</h1>
           <p className="text-gray-500 text-sm">Kelola jadwal kunjungan pasien</p>
         </div>
-        <button
-          onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(!showForm) }}
-          className="bg-primary/90 text-white px-4 py-2 rounded-full"
-        >
-          + Buat Jadwal
-        </button>
+        <div className="flex gap-2">
+  <label className="bg-white border border-primary/90 text-primary/90 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-green-50">
+    📥 Import Excel
+    <input
+      type="file"
+      accept=".xlsx,.xls"
+      className="hidden"
+      onChange={async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        const XLSX = await import('xlsx')
+        const reader = new FileReader()
+        reader.onload = async (evt) => {
+          const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const sheet = workbook.Sheets[workbook.SheetNames[0]]
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet)
+
+          const excelDateToString = (val: any) => {
+            if (!val) return ''
+            if (typeof val === 'number') {
+              const date = new Date((val - 25569) * 86400 * 1000)
+              return date.toISOString().split('T')[0]
+            }
+            return String(val)
+          }
+
+          const jadwalData = rows.map(row => ({
+            nama_pasien: row['nama_pasien'] || row['Nama'] || row['NAMA'] || '',
+            tanggal: excelDateToString(row['tanggal'] || row['Tanggal'] || ''),
+            waktu: row['waktu'] || row['Waktu'] || '',
+            layanan: row['layanan'] || row['Layanan'] || '',
+            catatan: row['catatan'] || row['Catatan'] || '',
+          })).filter(r => r.nama_pasien)
+
+          const { error } = await supabase.from('jadwal_praktik').insert(jadwalData)
+          if (error) alert('Gagal import: ' + error.message)
+          else { alert(`Berhasil import ${jadwalData.length} jadwal!`); fetchData() }
+        }
+        reader.readAsArrayBuffer(file)
+        e.target.value = ''
+      }}
+    />
+  </label>
+  <button
+    onClick={() => { setForm(emptyForm); setEditId(null); setShowForm(!showForm) }}
+    className="bg-primary/90 text-white px-4 py-2 rounded-full"
+  >
+    + Buat Jadwal
+  </button>
+</div>
       </div>
 
       {showForm && (
@@ -178,7 +224,10 @@ export default function JadwalPage() {
               const hasJadwal = tanggalAdaJadwal.has(dateStr)
               return (
                 <div key={day}
-                  onClick={() => setSelectedDate(new Date(year, month, day))}
+                  onClick={() => {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                    setSelectedDate(new Date(dateStr + 'T12:00:00'))
+                  }}
                   className={`p-2 rounded-lg cursor-pointer relative ${isSelected ? 'bg-primary/90 text-white' : isToday ? 'border border-green-600' : 'hover:bg-gray-100'}`}>
                   {day}
                   {hasJadwal && <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-green-400 rounded-full" />}

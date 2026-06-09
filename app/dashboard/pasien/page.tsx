@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useSearchParams } from 'next/navigation'
 
 type Pasien = {
   id: string
@@ -30,12 +31,16 @@ export default function PasienPage() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editId, setEditId] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const namaFilter = searchParams.get('nama') || ''
 
   const fetchPasien = async () => {
-    const { data } = await supabase.from('pasien').select('*')
-    if (data) setPasienList(data)
-    setLoading(false)
-  }
+  let query = supabase.from('pasien').select('*')
+  if (namaFilter) query = query.ilike('nama', `%${namaFilter}%`)
+  const { data } = await query
+  if (data) setPasienList(data)
+  setLoading(false)
+}
 
   useEffect(() => { fetchPasien() }, [])
 
@@ -71,6 +76,12 @@ export default function PasienPage() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Data Pasien</h1>
         <div className="flex gap-2">
+          {namaFilter && (
+  <div className="flex items-center gap-2 text-sm text-gray-500">
+    <span>Filter: <strong>{namaFilter}</strong></span>
+    <a href="/dashboard/pasien" className="text-red-400 hover:text-red-600">✕ Hapus filter</a>
+  </div>
+)}
   <label className="bg-white border border-primary/90 text-primary/90 px-4 py-2 rounded-full cursor-pointer text-sm font-medium hover:bg-primary/10">
     📥 Import Excel
     <input
