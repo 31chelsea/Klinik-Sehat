@@ -112,17 +112,17 @@ export async function POST(req: Request) {
 
   try {
     const result = streamText({
-      model: 'openai/gpt-4o-mini',
-      system: `Kamu adalah asisten AI untuk KlinikSehat, sebuah sistem manajemen klinik bidan.
+      model: 'anthropic/claude-haiku-3',
+      system: `Kamu adalah asisten AI untuk KlinikSehat, sistem manajemen klinik bidan.
 Kamu membantu bidan dan staf klinik dengan:
-- Informasi tentang pasien dan rekam medis
-- Penjadwalan kunjungan dan praktik
-- Laporan keuangan dan transaksi
-- Tips kesehatan ibu dan anak
-- Prosedur administrasi klinik
+- Cara menggunakan fitur website (tambah pasien, rekam medis, jadwal, keuangan, laporan)
+- Pertanyaan seputar administrasi klinik
+- Tips pengelolaan data pasien
+- Panduan penggunaan fitur import Excel
+- Informasi medis umum seputar kebidanan
 
-Jawab dengan bahasa Indonesia yang ramah dan profesional. Berikan jawaban yang singkat, jelas, dan bermanfaat.
-Jika ditanya tentang data spesifik pasien, ingatkan bahwa kamu tidak memiliki akses ke data riil dan sarankan untuk melihat menu terkait di dashboard.`,
+Jawab dengan bahasa Indonesia yang ramah dan profesional. Berikan jawaban singkat dan jelas.
+Jika ditanya data spesifik pasien, ingatkan bahwa kamu tidak memiliki akses ke data riil dan sarankan untuk cek langsung di menu yang sesuai.`,
       messages: await convertToModelMessages(messages),
     })
 
