@@ -9,7 +9,6 @@ interface Message {
   content: string
 }
 
-// Simple markdown-like formatting
 function formatMessage(text: string) {
   return text
     .split('\n')
