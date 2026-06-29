@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Bell, Menu } from "lucide-react"
+import { Search, Menu } from "lucide-react"
 import { useState } from "react"
 import { supabase } from '@/lib/supabase'
 
@@ -93,10 +93,6 @@ export function Topbar({ onToggleSidebar }: TopbarProps) {
             </div>
           )}
         </div>
-        <button className="relative h-9 w-9 grid place-items-center rounded-lg hover:bg-muted transition-colors">
-          <Bell className="h-4 w-4 text-muted-foreground" />
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-destructive" />
-        </button>
         <div className="flex items-center gap-2.5 pl-3 border-l border-border h-9">
           <div className="text-right leading-tight hidden sm:block">
             <p className="text-sm font-semibold text-foreground">Bidan Sari</p>

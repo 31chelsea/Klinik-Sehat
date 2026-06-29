@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter, ResponsiveContainer } from 'recharts'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterChart, Scatter, ResponsiveContainer, Cell } from 'recharts'
 
 const formatRp = (n: number) => {
   if (n >= 1000000) return 'Rp ' + (n / 1000000).toFixed(1) + 'M'
@@ -12,9 +12,9 @@ const formatRp = (n: number) => {
 }
 
 const CLUSTER_COLOR: Record<string, string> = {
-  'Cluster A': '#1565C0',
-  'Cluster B': '#2E7D32',
-  'Cluster C': '#E65100',
+  'Cluster A': '#A7C7E7',
+  'Cluster B': '#90EE90',
+  'Cluster C': '#EE7272',
 }
 
 export default function DashboardPage() {
@@ -167,10 +167,9 @@ export default function DashboardPage() {
                   <YAxis tick={{ fontSize: 12 }} />
                   <Tooltip formatter={(v) => [`${v}x`, 'Rata-rata Kunjungan']} />
                   <Bar dataKey="avgKunjungan" radius={[6, 6, 0, 0]}
-                    fill="#1565C0"
                     label={{ position: 'top', fontSize: 11, fontWeight: 'bold' }}>
                     {clusterData.map(c => (
-                      <rect key={c.cluster} fill={CLUSTER_COLOR[c.cluster]} />
+                      <Cell key={c.cluster} fill={CLUSTER_COLOR[c.cluster]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -188,6 +187,9 @@ export default function DashboardPage() {
                   <Tooltip formatter={(v: number) => [formatRp(v), 'Rata-rata Pembayaran']} />
                   <Bar dataKey="avgPembayaran" radius={[6, 6, 0, 0]}
                     label={{ position: 'top', fontSize: 10, fontWeight: 'bold', formatter: (v: number) => `${v/1000}K` }}>
+                      {clusterData.map(c => (
+                        <Cell key={c.cluster} fill={CLUSTER_COLOR[c.cluster]} />
+                      ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -201,7 +203,7 @@ export default function DashboardPage() {
             <ResponsiveContainer width="100%" height={280}>
               <ScatterChart>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="umur" name="Umur" unit=" thn" tick={{ fontSize: 11 }} label={{ value: 'Umur (tahun)', position: 'insideBottom', offset: -5, fontSize: 12 }} />
+                <XAxis dataKey="umur" name="Umur" unit=" thn" type="number" domain={['auto', 'auto']} tick={{ fontSize: 11 }} label={{ value: 'Umur (tahun)', position: 'insideBottom', offset: -5, fontSize: 12 }} />
                 <YAxis dataKey="pembayaran" name="Pembayaran" tickFormatter={v => `${v/1000}K`} tick={{ fontSize: 11 }} label={{ value: 'Pembayaran (Rp)', angle: -90, position: 'insideLeft', fontSize: 12 }} />
                 <Tooltip cursor={{ strokeDasharray: '3 3' }}
                   formatter={(v: number, name: string) => [name === 'pembayaran' ? formatRp(v) : `${v} tahun`, name === 'pembayaran' ? 'Pembayaran' : 'Umur']} />
