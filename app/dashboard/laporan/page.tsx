@@ -8,9 +8,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterCha
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 
 const KATEGORI_COLOR: Record<string, string> = {
-  'Risiko Rendah': '#A7C7E7',
-  'Risiko Sedang': '#90EE90',
-  'Risiko Tinggi': '#EE7272',
+  'Risiko Rendah': '#66a7e8',
+  'Risiko Sedang': '#58d558',
+  'Risiko Tinggi': '#de5e5e',
 }
 
 type PasienHasil = PasienFeatures & { kategori: string; umur_asli: number }
@@ -118,12 +118,26 @@ export default function LaporanPage() {
     .sort((a, b) => b.tingkat_keparahan - a.tingkat_keparahan)
     .slice(0, 10)
 
+  // Range tiap fitur, dipakai untuk normalisasi 0-100 di radar chart.
+  // Tanpa ini, skala Umur (20-55) menenggelamkan skala fitur lain (1-4).
+  const FEATURE_RANGE: Record<string, [number, number]> = {
+    keparahan: [1, 4],
+    kunjungan: [1, 4],
+    variasi: [1, 4],
+    usg: [0, 4],
+    umur: [20, 55],
+  }
+  const normPct = (value: number, key: string) => {
+    const [min, max] = FEATURE_RANGE[key]
+    return Math.round(((value - min) / (max - min)) * 100)
+  }
+
   const radarData = [
-    { variabel: 'Keparahan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, v.keparahan])) },
-    { variabel: 'Kunjungan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, v.kunjungan])) },
-    { variabel: 'Variasi Layanan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, v.variasi])) },
-    { variabel: 'Frek. USG', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, v.usg])) },
-    { variabel: 'Umur', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, v.umur])) },
+    { variabel: 'Keparahan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, normPct(v.keparahan, 'keparahan')])) },
+    { variabel: 'Kunjungan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, normPct(v.kunjungan, 'kunjungan')])) },
+    { variabel: 'Variasi Layanan', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, normPct(v.variasi, 'variasi')])) },
+    { variabel: 'Frek. USG', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, normPct(v.usg, 'usg')])) },
+    { variabel: 'Umur', ...Object.fromEntries(Object.entries(CENTROIDS).map(([k, v]) => [k, normPct(v.umur, 'umur')])) },
   ]
 
   const umurBins = [
@@ -321,7 +335,7 @@ export default function LaporanPage() {
                 <RadarChart data={radarData}>
                   <PolarGrid />
                   <PolarAngleAxis dataKey="variabel" tick={{ fontSize: 11 }} />
-                  <PolarRadiusAxis domain={[0, 4]} tick={{ fontSize: 10 }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickFormatter={(v) => `${v}%`} />
                   <Radar name="Risiko Rendah" dataKey="Risiko Rendah" stroke={KATEGORI_COLOR['Risiko Rendah']} fill={KATEGORI_COLOR['Risiko Rendah']} fillOpacity={0.15} />
                   <Radar name="Risiko Sedang" dataKey="Risiko Sedang" stroke={KATEGORI_COLOR['Risiko Sedang']} fill={KATEGORI_COLOR['Risiko Sedang']} fillOpacity={0.15} />
                   <Radar name="Risiko Tinggi" dataKey="Risiko Tinggi" stroke={KATEGORI_COLOR['Risiko Tinggi']} fill={KATEGORI_COLOR['Risiko Tinggi']} fillOpacity={0.15} />
@@ -337,14 +351,20 @@ export default function LaporanPage() {
               <ResponsiveContainer width="100%" height={260}>
                 <ScatterChart>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="tingkat_keparahan" name="Keparahan" type="number" domain={[0.5, 3.5]} tick={{ fontSize: 11 }} label={{ value: 'Tingkat Keparahan', position: 'insideBottom', offset: -5, fontSize: 11 }} />
-                  <YAxis dataKey="jumlah_kunjungan" name="Kunjungan" type="number" domain={[0.5, 3.5]} tick={{ fontSize: 11 }} label={{ value: 'Jumlah Kunjungan (skor)', angle: -90, position: 'insideLeft', fontSize: 11 }} />
+                  <XAxis dataKey="tingkat_keparahan" name="Keparahan" type="number" domain={[1, 4]} tick={{ fontSize: 11 }} label={{ value: 'Tingkat Keparahan', position: 'insideBottom', offset: -5, fontSize: 11 }} />
+                  <YAxis dataKey="jumlah_kunjungan" name="Kunjungan" type="number" domain={[1, 4]} tick={{ fontSize: 11 }} label={{ value: 'Jumlah Kunjungan', angle: -90, position: 'insideLeft', fontSize: 11 }} />
                   <Tooltip cursor={{ strokeDasharray: '3 3' }} />
                   <Legend verticalAlign="top" wrapperStyle={{ fontSize: 12 }} />
                   {['Risiko Rendah', 'Risiko Sedang', 'Risiko Tinggi'].map(kategori => (
                     <Scatter key={kategori} name={kategori}
-                      data={hasilCluster.filter(h => h.kategori === kategori)}
-                      fill={KATEGORI_COLOR[kategori]} opacity={0.8} />
+                      data={hasilCluster
+                        .filter(h => h.kategori === kategori)
+                        .map(h => ({
+                          ...h,
+                          tingkat_keparahan: h.tingkat_keparahan + (Math.random() - 0.5) * 0.3,
+                          jumlah_kunjungan: h.jumlah_kunjungan + (Math.random() - 0.5) * 0.3,
+                        }))}
+                      fill={KATEGORI_COLOR[kategori]} opacity={0.6} />
                   ))}
                 </ScatterChart>
               </ResponsiveContainer>

@@ -7,11 +7,6 @@ const SKOR_LAYANAN: Record<string, number> = {
   'USG': 3,
 }
 
-const skorKunjungan = (n: number) => n <= 2 ? 1 : n <= 4 ? 2 : 3
-const skorVariasi = (n: number) => n === 1 ? 1 : n <= 3 ? 2 : 3
-const skorUsg = (n: number) => n === 0 ? 1 : n === 1 ? 2 : 3
-const skorUmur = (n: number) => n < 20 ? 1 : n <= 35 ? 2 : 3
-
 // Centroid hasil training K-Means (dari Colab, jangan diubah kecuali retraining)
 const CENTROIDS = {
   'Risiko Rendah':  { keparahan: 2.08, kunjungan: 2.29, variasi: 1.73, usg: 0.61, umur: 26.45 },
@@ -19,13 +14,21 @@ const CENTROIDS = {
   'Risiko Tinggi':  { keparahan: 2.97, kunjungan: 3.88, variasi: 2.99, usg: 1.72, umur: 34.68 },
 }
 
-// Min-max range dari data training (untuk normalisasi yang konsisten)
+// PENTING: range ini HARUS sama dengan range nilai mentah yang dipakai
+// saat training di Colab. Jangan lewat fungsi skor manual tambahan,
+// karena centroid sudah dihitung dari nilai-nilai mentah ini langsung.
+// Dikonfirmasi dari hasil_clustering.xlsx:
+//   tingkat_keparahan      : 1 - 4
+//   jumlah_kunjungan       : 1 - 4  (hitungan asli kunjungan, BUKAN skor 1-3)
+//   variasi_layanan        : 1 - 4  (jumlah jenis layanan unik)
+//   frekuensi_layanan_berat: 0 - 4  (hitungan asli sesi USG/layanan berat)
+//   umur                   : 20 - 55
 const RANGE = {
-  keparahan: { min: 1, max: 3 },
-  kunjungan: { min: 1, max: 3 },
-  variasi: { min: 1, max: 3 },
-  usg: { min: 1, max: 3 },
-  umur: { min: 1, max: 3 },
+  keparahan: { min: 1, max: 4 },
+  kunjungan: { min: 1, max: 4 },
+  variasi: { min: 1, max: 4 },
+  usg: { min: 0, max: 4 },
+  umur: { min: 20, max: 55 },
 }
 
 export type PasienFeatures = {
@@ -34,7 +37,7 @@ export type PasienFeatures = {
   jumlah_kunjungan: number
   variasi_layanan: number
   frekuensi_usg: number
-  umur: number
+  umur_asli: number
 }
 
 export function hitungFeaturesPasien(
@@ -48,8 +51,8 @@ export function hitungFeaturesPasien(
       tingkat_keparahan: 1,
       jumlah_kunjungan: 1,
       variasi_layanan: 1,
-      frekuensi_usg: 1,
-      umur: skorUmur(umurAsli),
+      frekuensi_usg: 0,
+      umur_asli: umurAsli,
     }
   }
 
@@ -57,16 +60,17 @@ export function hitungFeaturesPasien(
   const skorList = jadwalPasien.map(j => SKOR_LAYANAN[j.layanan?.trim()] ?? 1)
   const tingkat_keparahan = Math.max(...skorList)
 
-  // Jumlah kunjungan
-  const jumlah_kunjungan = skorKunjungan(jadwalPasien.length)
+  // Jumlah kunjungan — NILAI MENTAH, tidak ditransform lagi.
+  // Centroid sudah dilatih dari hitungan asli ini.
+  const jumlah_kunjungan = jadwalPasien.length
 
-  // Variasi layanan (jumlah jenis unik)
-  const jenisUnik = new Set(jadwalPasien.map(j => j.layanan)).size
-  const variasi_layanan = skorVariasi(jenisUnik)
+  // Variasi layanan (jumlah jenis unik) — NILAI MENTAH
+  const variasi_layanan = new Set(jadwalPasien.map(j => j.layanan)).size
 
-  // Frekuensi USG
-  const jumlahUsg = jadwalPasien.filter(j => j.layanan?.trim().toUpperCase() === 'USG').length
-  const frekuensi_usg = skorUsg(jumlahUsg)
+  // Frekuensi USG — NILAI MENTAH (hitungan asli sesi USG)
+  const frekuensi_usg = jadwalPasien.filter(
+    j => j.layanan?.trim().toUpperCase() === 'USG'
+  ).length
 
   return {
     nama_pasien: namaPasien,
@@ -74,7 +78,7 @@ export function hitungFeaturesPasien(
     jumlah_kunjungan,
     variasi_layanan,
     frekuensi_usg,
-    umur: skorUmur(umurAsli),
+    umur_asli: umurAsli,
   }
 }
 
@@ -93,7 +97,7 @@ export function prediksiCluster(features: PasienFeatures): string {
     normalisasi(features.jumlah_kunjungan, 'kunjungan'),
     normalisasi(features.variasi_layanan, 'variasi'),
     normalisasi(features.frekuensi_usg, 'usg'),
-    normalisasi(features.umur, 'umur'),
+    normalisasi(features.umur_asli, 'umur'),
   ]
 
   let closestCluster = 'Risiko Rendah'
