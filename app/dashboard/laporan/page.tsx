@@ -65,8 +65,7 @@ export default function LaporanPage() {
       const kategori = prediksiCluster(features)
       return { ...features, kategori, umur_asli: umurAsli }
     })
-    console.log('Sample jadwal keys:', Object.keys(jadwalByPasien).slice(0, 3))
-    console.log('Sample pasien names:', pasienList.slice(0, 3).map(p => p.nama))
+    console.log('Sample hasil cluster:', hasil.slice(0, 5))
     setHasilCluster(hasil)
     setLoadingCluster(false)
   }
