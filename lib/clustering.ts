@@ -7,22 +7,12 @@ const SKOR_LAYANAN: Record<string, number> = {
   'USG': 3,
 }
 
-// Centroid hasil training K-Means (dari Colab, jangan diubah kecuali retraining)
 const CENTROIDS = {
   'Risiko Rendah':  { keparahan: 2.08, kunjungan: 2.29, variasi: 1.73, usg: 0.61, umur: 26.45 },
   'Risiko Sedang':  { keparahan: 2.56, kunjungan: 2.54, variasi: 2.15, usg: 0.99, umur: 43.98 },
   'Risiko Tinggi':  { keparahan: 2.97, kunjungan: 3.88, variasi: 2.99, usg: 1.72, umur: 34.68 },
 }
 
-// PENTING: range ini HARUS sama dengan range nilai mentah yang dipakai
-// saat training di Colab. Jangan lewat fungsi skor manual tambahan,
-// karena centroid sudah dihitung dari nilai-nilai mentah ini langsung.
-// Dikonfirmasi dari hasil_clustering.xlsx:
-//   tingkat_keparahan      : 1 - 4
-//   jumlah_kunjungan       : 1 - 4  (hitungan asli kunjungan, BUKAN skor 1-3)
-//   variasi_layanan        : 1 - 4  (jumlah jenis layanan unik)
-//   frekuensi_layanan_berat: 0 - 4  (hitungan asli sesi USG/layanan berat)
-//   umur                   : 20 - 55
 const RANGE = {
   keparahan: { min: 1, max: 4 },
   kunjungan: { min: 1, max: 4 },
@@ -56,18 +46,10 @@ export function hitungFeaturesPasien(
     }
   }
 
-  // Tingkat keparahan = skor maksimum dari semua layanan yang diambil
   const skorList = jadwalPasien.map(j => SKOR_LAYANAN[j.layanan?.trim()] ?? 1)
   const tingkat_keparahan = Math.max(...skorList)
-
-  // Jumlah kunjungan — NILAI MENTAH, tidak ditransform lagi.
-  // Centroid sudah dilatih dari hitungan asli ini.
   const jumlah_kunjungan = jadwalPasien.length
-
-  // Variasi layanan (jumlah jenis unik) — NILAI MENTAH
   const variasi_layanan = new Set(jadwalPasien.map(j => j.layanan)).size
-
-  // Frekuensi USG — NILAI MENTAH (hitungan asli sesi USG)
   const frekuensi_usg = jadwalPasien.filter(
     j => j.layanan?.trim().toUpperCase() === 'USG'
   ).length

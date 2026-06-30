@@ -8,9 +8,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterCha
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 
 const KATEGORI_COLOR: Record<string, string> = {
-  'Risiko Rendah': '#66a7e8',
-  'Risiko Sedang': '#58d558',
-  'Risiko Tinggi': '#de5e5e',
+  'Risiko Rendah': '#A7C7E7',
+  'Risiko Sedang': '#90EE90',
+  'Risiko Tinggi': '#EE7272',
 }
 
 type PasienHasil = PasienFeatures & { kategori: string; umur_asli: number }
@@ -77,13 +77,18 @@ export default function LaporanPage() {
 
   const totalPendapatan = transaksiList.reduce((a, t) => a + t.jumlah, 0)
 
-  // Distribusi layanan dari rekam medis (LAMA)
+  // Ekstrak nama layanan langsung dari kolom catatan, format: "...Layanan: <nama>."
+  const ekstrakLayanan = (catatan: string): string => {
+    const match = catatan?.match(/Layanan:\s*([^.]+)\./i)
+    return match ? match[1].trim() : 'Lainnya'
+  }
+
   const distribusi: Record<string, number> = {}
   rekamMedisList.forEach(r => {
-    const key = r.jenis_pemeriksaan || r.diagnosis || 'Lainnya'
-    distribusi[key] = (distribusi[key] || 0) + 1
+    const kategori = ekstrakLayanan(r.catatan || '')
+    distribusi[kategori] = (distribusi[kategori] || 0) + 1
   })
-  const distribusiArr = Object.entries(distribusi).sort((a, b) => b[1] - a[1]).slice(0, 5)
+  const distribusiArr = Object.entries(distribusi).sort((a, b) => b[1] - a[1])
   const totalDist = rekamMedisList.length || 1
 
   // Pendapatan per bulan (LAMA)
@@ -93,7 +98,6 @@ export default function LaporanPage() {
     if (key) perBulan[key] = (perBulan[key] || 0) + t.jumlah
   })
   const perBulanArr = Object.entries(perBulan).sort().slice(-5)
-  const maxBulan = Math.max(...perBulanArr.map(b => b[1]), 1)
 
   const bulanNama: Record<string, string> = {
     '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr',
@@ -218,7 +222,6 @@ export default function LaporanPage() {
                       <tr className="text-gray-400 text-xs uppercase">
                         <th className="text-left py-1">Bulan</th>
                         <th className="text-left py-1">Pendapatan</th>
-                        <th className="text-left py-1">Grafik</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -226,11 +229,6 @@ export default function LaporanPage() {
                         <tr key={key} className="border-t">
                           <td className="py-2">{formatBulan(key)}</td>
                           <td className="py-2">{formatRp(jumlah)}</td>
-                          <td className="py-2 w-32">
-                            <div className="w-full bg-gray-100 rounded-full h-2">
-                              <div className="bg-primary/90 h-2 rounded-full" style={{ width: `${jumlah / maxBulan * 100}%` }} />
-                            </div>
-                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -255,7 +253,7 @@ export default function LaporanPage() {
       {/* ===== SECTION BARU: ANALISIS CLUSTERING ===== */}
       <div className="pt-4 border-t">
         <h2 className="text-xl font-bold">Analisis Clustering Pasien</h2>
-        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means (otomatis update)</p>
+        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means</p>
       </div>
 
       {loadingCluster ? <p>Menghitung clustering...</p> : totalPasienCluster === 0 ? (
@@ -307,7 +305,7 @@ export default function LaporanPage() {
             {/* Pasien Perlu Perhatian */}
             <div className="border rounded-xl p-4">
               <h2 className="font-semibold mb-1">Pasien Perlu Perhatian</h2>
-              <p className="text-gray-500 text-xs mb-3">Kategori Risiko Tinggi, diurutkan dari paling parah</p>
+              <p className="text-gray-500 text-xs mb-3">Kategori Risiko Tinggi</p>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {pasienRisikoTinggi.length === 0 ? (
                   <p className="text-gray-400 text-sm">Tidak ada pasien risiko tinggi.</p>
