@@ -8,9 +8,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ScatterCha
 const formatRp = (n: number) => 'Rp ' + n.toLocaleString('id-ID')
 
 const KATEGORI_COLOR: Record<string, string> = {
-  'Risiko Rendah': '#A7C7E7',
-  'Risiko Sedang': '#90EE90',
-  'Risiko Tinggi': '#EE7272',
+  'Risiko Rendah': '#53a6ef',
+  'Risiko Sedang': '#59eb96',
+  'Risiko Tinggi': '#f46161',
 }
 
 type PasienHasil = PasienFeatures & { kategori: string; umur_asli: number }
@@ -28,6 +28,17 @@ export default function LaporanPage() {
   // State baru untuk clustering
   const [hasilCluster, setHasilCluster] = useState<PasienHasil[]>([])
   const [loadingCluster, setLoadingCluster] = useState(true)
+  const [kategoriTerpilih, setKategoriTerpilih] = useState<string | null>(null)
+  const [halamanTabel, setHalamanTabel] = useState(1)
+  const PER_HALAMAN = 10
+
+  const pilihKategoriDanScroll = (kategori: string) => {
+    setKategoriTerpilih(kategori)
+    setHalamanTabel(1)
+    setTimeout(() => {
+      document.getElementById('tabel-detail-pasien')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 50)
+  }
 
   const fetchData = async () => {
     const { count: cp } = await supabase.from('pasien').select('*', { count: 'exact', head: true })
@@ -122,8 +133,6 @@ export default function LaporanPage() {
     .sort((a, b) => b.tingkat_keparahan - a.tingkat_keparahan)
     .slice(0, 10)
 
-  // Range tiap fitur, dipakai untuk normalisasi 0-100 di radar chart.
-  // Tanpa ini, skala Umur (20-55) menenggelamkan skala fitur lain (1-4).
   const FEATURE_RANGE: Record<string, [number, number]> = {
     keparahan: [1, 4],
     kunjungan: [1, 4],
@@ -145,7 +154,7 @@ export default function LaporanPage() {
   ]
 
   const umurBins = [
-    { label: '<25', min: 0, max: 24 },
+    { label: '<25', min: 0, max: 20 },
     { label: '25-34', min: 25, max: 34 },
     { label: '35-44', min: 35, max: 44 },
     { label: '45-54', min: 45, max: 54 },
@@ -253,7 +262,7 @@ export default function LaporanPage() {
       {/* ===== SECTION BARU: ANALISIS CLUSTERING ===== */}
       <div className="pt-4 border-t">
         <h2 className="text-xl font-bold">Analisis Clustering Pasien</h2>
-        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means</p>
+        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means (otomatis update)</p>
       </div>
 
       {loadingCluster ? <p>Menghitung clustering...</p> : totalPasienCluster === 0 ? (
@@ -266,23 +275,38 @@ export default function LaporanPage() {
               <p className="text-gray-500 text-sm">Total Pasien Dianalisis</p>
               <p className="text-2xl font-bold mt-1">{totalPasienCluster}</p>
             </div>
-            <div className="border rounded-xl p-4" style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Tinggi']}` }}>
+            <div
+              onClick={() => pilihKategoriDanScroll('Risiko Tinggi')}
+              className="border rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow"
+              style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Tinggi']}` }}
+            >
               <p className="text-gray-500 text-sm">Risiko Tinggi</p>
               <p className="text-2xl font-bold mt-1" style={{ color: KATEGORI_COLOR['Risiko Tinggi'] }}>
                 {distribusiCluster.find(d => d.kategori === 'Risiko Tinggi')?.jumlah || 0}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Klik untuk lihat detail →</p>
             </div>
-            <div className="border rounded-xl p-4" style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Sedang']}` }}>
+            <div
+              onClick={() => pilihKategoriDanScroll('Risiko Sedang')}
+              className="border rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow"
+              style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Sedang']}` }}
+            >
               <p className="text-gray-500 text-sm">Risiko Sedang</p>
               <p className="text-2xl font-bold mt-1" style={{ color: KATEGORI_COLOR['Risiko Sedang'] }}>
                 {distribusiCluster.find(d => d.kategori === 'Risiko Sedang')?.jumlah || 0}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Klik untuk lihat detail →</p>
             </div>
-            <div className="border rounded-xl p-4" style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Rendah']}` }}>
+            <div
+              onClick={() => pilihKategoriDanScroll('Risiko Rendah')}
+              className="border rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow"
+              style={{ borderLeft: `4px solid ${KATEGORI_COLOR['Risiko Rendah']}` }}
+            >
               <p className="text-gray-500 text-sm">Risiko Rendah</p>
               <p className="text-2xl font-bold mt-1" style={{ color: KATEGORI_COLOR['Risiko Rendah'] }}>
                 {distribusiCluster.find(d => d.kategori === 'Risiko Rendah')?.jumlah || 0}
               </p>
+              <p className="text-xs text-gray-400 mt-1">Klik untuk lihat detail →</p>
             </div>
           </div>
 
@@ -290,11 +314,23 @@ export default function LaporanPage() {
             {/* Distribusi Kategori - Pie Chart */}
             <div className="border rounded-xl p-4">
               <h2 className="font-semibold mb-1">Distribusi Kategori Risiko</h2>
-              <p className="text-gray-500 text-xs mb-3">Proporsi {totalPasienCluster} pasien per kategori</p>
+              <p className="text-gray-500 text-xs mb-3">Proporsi {totalPasienCluster} pasien per kategori — klik bagian untuk lihat detail</p>
               <ResponsiveContainer width="100%" height={240}>
-                <PieChart>
-                  <Pie data={distribusiCluster} dataKey="jumlah" nameKey="kategori" cx="50%" cy="50%" outerRadius={80}
-                    label={(entry) => `${entry.kategori}: ${entry.jumlah}`}>
+                <PieChart margin={{ top: 20, right: 70, bottom: 20, left: 90 }}>
+                  <Pie data={distribusiCluster} dataKey="jumlah" nameKey="kategori" cx="50%" cy="50%" outerRadius={70}
+                    label={(props: any) => {
+                      const RADIAN = Math.PI / 180
+                      const radius = props.outerRadius + 20
+                      const x = props.cx + radius * Math.cos(-props.midAngle * RADIAN)
+                      const y = props.cy + radius * Math.sin(-props.midAngle * RADIAN)
+                      return (
+                      <text x={x} y={y} fontSize={11} textAnchor={x > props.cx ? 'start' : 'end'} dominantBaseline="central">
+                        {`${props.kategori}: ${props.jumlah}`}
+                        </text>
+                        )
+                      }}
+                    onClick={(entry) => pilihKategoriDanScroll(entry.kategori)}
+                    style={{ cursor: 'pointer' }}>
                     {distribusiCluster.map(d => <Cell key={d.kategori} fill={KATEGORI_COLOR[d.kategori]} />)}
                   </Pie>
                   <Tooltip />
@@ -305,7 +341,7 @@ export default function LaporanPage() {
             {/* Pasien Perlu Perhatian */}
             <div className="border rounded-xl p-4">
               <h2 className="font-semibold mb-1">Pasien Perlu Perhatian</h2>
-              <p className="text-gray-500 text-xs mb-3">Kategori Risiko Tinggi</p>
+              <p className="text-gray-500 text-xs mb-3">Kategori Risiko Tinggi, diurutkan dari paling parah</p>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {pasienRisikoTinggi.length === 0 ? (
                   <p className="text-gray-400 text-sm">Tidak ada pasien risiko tinggi.</p>
@@ -385,6 +421,105 @@ export default function LaporanPage() {
                 <Bar dataKey="Risiko Tinggi" fill={KATEGORI_COLOR['Risiko Tinggi']} radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+
+          {/* Tabel Detail Pasien per Kategori */}
+          <div id="tabel-detail-pasien" className="border rounded-xl p-4">
+            <div className="flex justify-between items-center mb-1 flex-wrap gap-2">
+              <div>
+                <h2 className="font-semibold">Detail Pasien per Kategori Risiko</h2>
+                <p className="text-gray-500 text-xs">
+                  {kategoriTerpilih ? `Menampilkan kategori: ${kategoriTerpilih}` : 'Pilih kategori dari kartu atau pie chart di atas'}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {['Risiko Tinggi', 'Risiko Sedang', 'Risiko Rendah'].map(kat => (
+                  <button
+                    key={kat}
+                    onClick={() => { setKategoriTerpilih(kat); setHalamanTabel(1) }}
+                    className="text-xs px-3 py-1.5 rounded-full font-medium border transition-colors"
+                    style={{
+                      backgroundColor: kategoriTerpilih === kat ? KATEGORI_COLOR[kat] : 'transparent',
+                      borderColor: KATEGORI_COLOR[kat],
+                      color: kategoriTerpilih === kat ? '#fff' : KATEGORI_COLOR[kat],
+                    }}
+                  >
+                    {kat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!kategoriTerpilih ? (
+              <p className="text-gray-400 text-sm mt-4">Belum ada kategori dipilih.</p>
+            ) : (() => {
+              const filtered = hasilCluster.filter(h => h.kategori === kategoriTerpilih)
+              const totalHalaman = Math.max(1, Math.ceil(filtered.length / PER_HALAMAN))
+              const halamanAman = Math.min(halamanTabel, totalHalaman)
+              const dataHalaman = filtered.slice((halamanAman - 1) * PER_HALAMAN, halamanAman * PER_HALAMAN)
+
+              return (
+                <>
+                  <p className="text-xs text-gray-500 mt-2 mb-3">{filtered.length} pasien ditemukan</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-gray-400 text-xs uppercase border-b">
+                          <th className="text-left py-2 pr-3">Nama Pasien</th>
+                          <th className="text-left py-2 pr-3">Umur</th>
+                          <th className="text-left py-2 pr-3">Keparahan</th>
+                          <th className="text-left py-2 pr-3">Kunjungan</th>
+                          <th className="text-left py-2 pr-3">Variasi Layanan</th>
+                          <th className="text-left py-2 pr-3">Frek. USG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dataHalaman.map(p => (
+                          <tr key={p.nama_pasien} className="border-b last:border-0">
+                            <td className="py-2 pr-3 font-medium">{p.nama_pasien}</td>
+                            <td className="py-2 pr-3">{p.umur_asli} thn</td>
+                            <td className="py-2 pr-3">
+                              <span
+                                className="px-2 py-0.5 rounded-full text-xs font-medium"
+                                style={{ backgroundColor: KATEGORI_COLOR[kategoriTerpilih] + '30', color: KATEGORI_COLOR[kategoriTerpilih] }}
+                              >
+                                {p.tingkat_keparahan}
+                              </span>
+                            </td>
+                            <td className="py-2 pr-3">{p.jumlah_kunjungan}x</td>
+                            <td className="py-2 pr-3">{p.variasi_layanan} jenis</td>
+                            <td className="py-2 pr-3">{p.frekuensi_usg}x</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination */}
+                  <div className="flex justify-between items-center mt-4 text-sm">
+                    <p className="text-gray-400 text-xs">
+                      Halaman {halamanAman} dari {totalHalaman}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={halamanAman <= 1}
+                        onClick={() => setHalamanTabel(h => Math.max(1, h - 1))}
+                        className="px-3 py-1.5 rounded-lg border text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        ← Sebelumnya
+                      </button>
+                      <button
+                        disabled={halamanAman >= totalHalaman}
+                        onClick={() => setHalamanTabel(h => Math.min(totalHalaman, h + 1))}
+                        className="px-3 py-1.5 rounded-lg border text-xs disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Selanjutnya →
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
           </div>
         </>
       )}
