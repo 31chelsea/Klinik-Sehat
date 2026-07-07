@@ -262,7 +262,7 @@ export default function LaporanPage() {
       {/* ===== SECTION BARU: ANALISIS CLUSTERING ===== */}
       <div className="pt-4 border-t">
         <h2 className="text-xl font-bold">Analisis Clustering Pasien</h2>
-        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means (otomatis update)</p>
+        <p className="text-gray-500 text-sm mb-4">Pengelompokan risiko berbasis K-Means</p>
       </div>
 
       {loadingCluster ? <p>Menghitung clustering...</p> : totalPasienCluster === 0 ? (
